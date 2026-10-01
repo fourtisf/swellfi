@@ -15,6 +15,7 @@
 # .env with fresh secrets (never overwritten on re-runs); builds; starts both apps under PM2 with
 # boot persistence; gets a Let's Encrypt certificate; enables the firewall (SSH, 80, 443).
 set -euo pipefail
+trap 'echo "bootstrap failed at line $LINENO: $BASH_COMMAND (exit $?)" >&2' ERR
 
 DOMAIN="swellfi.xyz"
 REPO="https://github.com/fourtisf/swellfi.git"
@@ -43,9 +44,12 @@ if ! command -v node >/dev/null || ! node -e 'const [a,b]=process.versions.node.
   apt-get install -y nodejs
 fi
 node -v
-corepack enable
-corepack prepare "pnpm@${PNPM_VERSION}" --activate
+# pnpm as a plain global install: corepack keeps a per-user cache and can fail silently for
+# the app user, so its shims are removed first.
+command -v corepack >/dev/null && corepack disable pnpm pnpx >/dev/null 2>&1 || true
+[ "$(pnpm -v 2>/dev/null || true)" = "$PNPM_VERSION" ] || npm install -g --force "pnpm@${PNPM_VERSION}"
 command -v pm2 >/dev/null || npm install -g pm2
+echo "pnpm $(pnpm -v), pm2 $(pm2 -v 2>/dev/null | tail -1)"
 
 step "Swap (the Next.js build needs memory)"
 mem_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
@@ -65,8 +69,7 @@ if [ -d "$APP_DIR/.git" ]; then
 else
   sudo -u "$APP_USER" -H git clone --branch "$BRANCH" "$REPO" "$APP_DIR"
 fi
-# corepack shims live in /usr/bin; make sure the app user resolves the pinned pnpm too.
-sudo -u "$APP_USER" -H bash -lc "corepack prepare pnpm@${PNPM_VERSION} --activate >/dev/null"
+as_app "pnpm -v >/dev/null"
 
 step "Postgres and Redis"
 systemctl enable --now postgresql redis-server
