@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # One-shot setup of Swellfi on a fresh Ubuntu 24.04 VPS. Run as root; safe to re-run.
 #
-#   curl -fsSL https://raw.githubusercontent.com/fourtisf/swellfi/claude/new-session-i27eid/deploy/bootstrap.sh -o bootstrap.sh
+#   curl -fsSL https://raw.githubusercontent.com/fourtisf/swellfi/main/deploy/bootstrap.sh -o bootstrap.sh
 #   EMAIL=you@example.com bash bootstrap.sh
 #
 # Optional variables:
 #   EMAIL     Let's Encrypt account e-mail (expiry notices). Recommended.
 #   BUILDER   Builder fee address (NEXT_PUBLIC_BUILDER_ADDRESS). Trading is blocked until it's set.
 #   ADMIN     Comma-separated admin master-wallet addresses (ADMIN_ADDRESSES).
-#   BRANCH    Git branch to deploy (default: claude/new-session-i27eid).
+#   BRANCH    Git branch to deploy (default: main).
 #
 # What it does: installs Node 22, pnpm, PM2, Postgres, Redis, Nginx and certbot; creates the
 # `swellfi` system user that runs the app; clones the repo to /srv/swellfi; writes a production
@@ -19,7 +19,7 @@ trap 'echo "bootstrap failed at line $LINENO: $BASH_COMMAND (exit $?)" >&2' ERR
 
 DOMAIN="swellfi.xyz"
 REPO="https://github.com/fourtisf/swellfi.git"
-BRANCH="${BRANCH:-claude/new-session-i27eid}"
+BRANCH="${BRANCH:-main}"
 APP_USER="swellfi"
 APP_DIR="/srv/swellfi"
 PNPM_VERSION="10.28.0"

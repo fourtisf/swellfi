@@ -155,9 +155,9 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 DNS first: an `A` record for `swellfi.xyz` and a `CNAME` (or `A`) for `www` pointing at the VPS. Then, as root on a fresh Ubuntu 24.04 server:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fourtisf/swellfi/claude/new-session-i27eid/deploy/bootstrap.sh -o bootstrap.sh
+curl -fsSL https://raw.githubusercontent.com/fourtisf/swellfi/main/deploy/bootstrap.sh -o bootstrap.sh
 EMAIL=you@example.com bash bootstrap.sh
-# optional: BUILDER=0x… ADMIN=0x…,0x… BRANCH=main
+# optional: BUILDER=0x… ADMIN=0x…,0x… BRANCH=<branch>
 ```
 
 `deploy/bootstrap.sh` is safe to re-run. It:
