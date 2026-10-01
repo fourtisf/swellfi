@@ -12,16 +12,9 @@ import { useWatchlist } from "@/lib/hooks";
 import { useMarkets } from "@/lib/market";
 import { NAV, traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
-import { openModal, toast, useUi, type ModalName } from "@/lib/ui-store";
-
-function Modal({ name, className = "", children }: { name: ModalName; className?: string; children: ReactNode }) {
-  const on = useUi((s) => s.modal === name);
-  return (
-    <div className={`modal ${className}${on ? " on" : ""}`} role="dialog" aria-modal="true" aria-hidden={!on}>
-      {on && children}
-    </div>
-  );
-}
+import { openModal, toast, useUi } from "@/lib/ui-store";
+import { Modal } from "./modal";
+import { MoneyModals } from "./trade/money-modals";
 
 function WalletModal() {
   const s = useSession();
@@ -404,6 +397,7 @@ export function Overlays() {
       <InviteModal />
       <PickerModal />
       <CmdModal />
+      <MoneyModals />
       <Toast />
     </>
   );

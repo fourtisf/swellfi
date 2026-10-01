@@ -41,7 +41,7 @@ Phase 1 deliberately does **not** do the following. These buttons show a "coming
 - Fund invest/create: Phase 4.
 - Reward claims: Phase 4.
 
-## Phase 2: Real trading (testnet first)
+## Phase 2: Real trading (testnet first) ✅ built, awaiting testnet acceptance run
 
 **packages/hl/src/exchange.ts**: a thin wrapper over pinned `@nktkas/hyperliquid`:
 
@@ -77,3 +77,28 @@ Phase 1 deliberately does **not** do the following. These buttons show a "coming
 - A confirm dialog on mainnet.
 
 **Done when:** on testnet, deposit → order → fill → TP hit → withdraw works, and `builderFee` shows on fills.
+
+### Phase 2: what was built
+
+| Area | Module |
+|---|---|
+| Order construction | `packages/hl/src/trading.ts`: market (IOC ± slippage), limit GTC/ALO, stop market, stop limit, TP/SL children (`normalTpsl`), position TP/SL (`positionTpsl`), close (reduce-only IOC). Uses SDK `formatPrice`/`formatSize`, $10 minimum, **builder object required on every order** |
+| Signing | `packages/hl/src/exchange.ts` over `@nktkas/hyperliquid` 0.33.3 (pinned). Agent client for L1 actions; master client (signatureChainId pinned to Arbitrum) for user-signed actions |
+| Bridge | `packages/hl/src/bridge.ts`: Bridge2 + USDC addresses per network, exact USDC unit parsing, 5 USDC minimum, 1 USDC withdraw fee |
+| Agent key | `apps/web/src/lib/trading/agent-store.ts`: generated in-browser, AES-GCM with a non-extractable key in IndexedDB, fresh address per approval |
+| Account data | `apps/web/src/lib/trading/account.ts`: clearinghouseState per dex (+ spot balances for unified accounts), open orders, agents, builder approval, fills, history, funding; WS-driven refresh |
+| Actions | `apps/web/src/lib/trading/use-trading.ts`: enable trading, deposit (+ credit polling), withdraw, leverage sync, HIP-3 collateral top-up, place/cancel/close |
+| UI | Order panel (3-step checklist, live submit, % of balance, Margin/USD/coin sizing, Post Only, slippage, stop limit, mainnet double-confirm), deposit/withdraw modals, live Positions/Open Orders/Order History/Funding/Analytics, Trading Account card, header balance, Portfolio card, entry/liquidation lines on the chart |
+| Tests | `packages/hl`: 26 tests, incl. signatures recovered to the agent (L1) and checked user-signed payloads (`Testnet`, `0x66eee`, `"0.05%"`) |
+
+**Not yet verified** (needs the testnet run in README → "Testnet runbook"):
+
+- The full lifecycle against Hyperliquid testnet: this build environment can't reach Hyperliquid or Privy.
+
+**Deferred:**
+
+- Gas sponsorship for embedded-wallet deposits (Privy dashboard + `sponsor` option).
+- CCTP deposits.
+- Scale/TWAP orders.
+- Isolated margin top-up UI (`updateIsolatedMargin` is in the SDK).
+- Position TP/SL editing on existing positions (builder exists: `buildPositionTpsl`).

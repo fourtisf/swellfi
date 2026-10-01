@@ -7,7 +7,7 @@ Non-custodial Hyperliquid perps trading with a social layer: rankings, feed, liv
 - **Plan and phase status:** `PLAN.md`
 - **Verified Hyperliquid/Privy facts:** `NOTES.md`
 
-> **Status:** Phase 1 (read-only foundation). All trading runs on **Hyperliquid testnet** until mainnet is explicitly approved (`NEXT_PUBLIC_HL_NETWORK`).
+> **Status:** Phase 1 (foundation) and Phase 2 (real trading) are built. Trading runs on **Hyperliquid testnet** until mainnet is explicitly approved (`NEXT_PUBLIC_HL_NETWORK`). See "Testnet runbook" below.
 
 ## Stack
 
@@ -53,7 +53,8 @@ Then open http://localhost:3000.
 | `NEXT_PUBLIC_HL_DATA_NETWORK` | Optional. Market data from another network (e.g. mainnet prices in a demo) |
 | `NEXT_PUBLIC_HL_HIP3_DEXES` | HIP-3 dexes to list, e.g. `xyz` (stocks and commodities) |
 | `NEXT_PUBLIC_HL_INFO_URL`, `NEXT_PUBLIC_HL_WS_URL` | Optional overrides (local mock, own node) |
-| `NEXT_PUBLIC_BUILDER_ADDRESS`, `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` | Builder code. `50` = 0.05%; the perps max is `100` |
+| `NEXT_PUBLIC_BUILDER_ADDRESS`, `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` | Builder code. `50` = 0.05%; the perps max is `100`. **Trading is disabled until the address is set.** The builder wallet needs ≥ 100 USDC perps account value |
+| `NEXT_PUBLIC_ARB_RPC_URL` | Optional Arbitrum RPC for deposits. Defaults to the public RPC (Arbitrum One / Sepolia) |
 | `DATABASE_URL`, `REDIS_URL` | Postgres and Redis |
 | `API_PORT`, `API_HOST`, `API_INTERNAL_URL` | API bind address; where Next proxies `/api` in dev |
 | `INVITE_ONLY` | `true`: sign-up requires an invite code |
@@ -95,6 +96,36 @@ curl -X POST -H "Authorization: Bearer $TOKEN" https://<host>/api/admin/waitlist
 curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
      -d '{"count":10,"maxUses":1}' https://<host>/api/admin/invites
 ```
+
+## How trading works (Phase 2)
+
+| Step | Signed by | What happens |
+|---|---|---|
+| Deposit | Master wallet (Privy embedded or external) | USDC `transfer` on Arbitrum to Hyperliquid's Bridge2. The modal enforces the **5 USDC minimum**, shows the tx, then polls until Hyperliquid credits it |
+| Enable trading | Master wallet | `approveAgent`: a fresh agent key, generated in the browser, named `tideline`, valid 90 days. Then `approveBuilderFee` for the configured builder at `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` |
+| Orders, cancels, leverage, close | **Agent key** (no wallet popup) | `order` with the builder object on every order; `cancel`; `updateLeverage` (cross/isolated) before an order when it changed; close = reduce-only IOC. For HIP-3 markets, collateral moves to that dex with `agentSendAsset` (same user only) |
+| Withdraw | Master wallet | `withdraw3` to the user's own address. The 1 USDC Hyperliquid fee is shown before signing |
+
+- The agent key lives only in the browser. It is stored in IndexedDB, encrypted with a non-extractable AES-GCM key, and never sent to our API. It can trade but can't withdraw or transfer to anyone else.
+- Positions, open orders, order history, funding history and the Trading Account card come straight from Hyperliquid: `clearinghouseState` per dex, `frontendOpenOrders`, `historicalOrders`, `userFunding`, `userFills`. Data is polled and refreshed instantly on WS `orderUpdates` / `userFills`.
+- Builder revenue: each fill carries `builderFee` (already included in `fee`). The Phase 3 indexer writes it to `RewardLedger`.
+
+## Testnet runbook (Phase 2 acceptance)
+
+1. Fill in `.env` and rebuild the web app:
+   - `NEXT_PUBLIC_HL_NETWORK=testnet`
+   - `NEXT_PUBLIC_HL_DATA_NETWORK` empty
+   - Privy keys
+   - `NEXT_PUBLIC_BUILDER_ADDRESS`
+2. Fund the builder wallet with ≥ 100 USDC perps value on testnet.
+3. Prepare a test user wallet. The **testnet faucet only pays addresses that have made a mainnet deposit**. Claim 1,000 mock USDC at https://app.hyperliquid-testnet.xyz/drip, or bridge test USDC on Arbitrum Sepolia, and keep a little Sepolia ETH for gas.
+4. Log in, redeem an invite, then **Deposit** (≥ 5 USDC) → **Enable trading** (two signatures).
+5. Run the trade lifecycle:
+   1. Market buy BTC with a TP a little above the price.
+   2. Watch the position and the TP order (Positions → TP / SL; Open Orders).
+   3. When the TP triggers, the position closes and it shows in Order History.
+6. Check the builder fee: `curl -s https://api.hyperliquid-testnet.xyz/info -d '{"type":"userFills","user":"<addr>"}' -H 'content-type: application/json'` shows `builderFee` on the fills.
+7. **Withdraw** a few USDC. It arrives on Arbitrum Sepolia minus 1 USDC.
 
 ## Deploying to the VPS (Hostinger, Ubuntu)
 
@@ -152,7 +183,7 @@ Useful commands: `pm2 logs`, `pm2 status`, `pm2 reload all`.
 
 - **Non-custodial.**
   - The server never holds user funds or any private key.
-  - The trading agent key (Phase 2) is generated and encrypted in the browser. It can place and cancel orders but cannot withdraw.
+  - The trading agent key is generated and encrypted in the browser. It can place and cancel orders but cannot withdraw. Encryption at rest protects against storage exfiltration, not XSS, so the CSP must be enforced before mainnet (see NOTES.md).
   - Withdrawals are signed by the user's master wallet.
 - **API.**
   - Every signed-in route verifies the Privy access token.

@@ -4,7 +4,7 @@
 /** Base-tier perp fees. Verify against the current fee schedule (see NOTES.md). */
 export const HL_FEES = { taker: 0.00045, maker: 0.00015 } as const;
 
-export type OrderType = "market" | "limit" | "stop";
+export type OrderType = "market" | "limit" | "stop" | "stopLimit";
 export type Side = "long" | "short";
 
 export interface OrderEstimateInput {

@@ -11,7 +11,8 @@ import { tradeHref } from "@/lib/routes";
 import { openModal, useUi } from "@/lib/ui-store";
 import { BookColumn, type BookPanel } from "./book";
 import { BottomTabs } from "./bottom";
-import { PriceChart } from "./chart";
+import { PriceChart, type ChartLine } from "./chart";
+import { useHlAccount } from "@/lib/trading/account";
 import { useOrderForm } from "./order-store";
 import { OrderPanel } from "./order-panel";
 import { TradeSidebar } from "./sidebar";
@@ -82,6 +83,14 @@ export function TradeView({ coin }: { coin: string }) {
   const [bookOpen, setBookOpen] = useState(false);
   const setSheet = useUi((u) => u.setSheet);
   const setForm = useOrderForm((s) => s.set);
+  const acct = useHlAccount();
+  const pos = acct.positions.find((p) => p.coin === coin);
+  const lines: ChartLine[] = pos
+    ? [
+        { price: pos.entryPx, color: "#16C784", title: `Your ${pos.szi > 0 ? "long" : "short"} · ${pos.leverage.value}x` },
+        ...(pos.liquidationPx ? [{ price: pos.liquidationPx, color: "#F5B53D", title: "Liq." }] : []),
+      ]
+    : [];
 
   useEffect(() => {
     document.body.classList.add("is-trade");
@@ -132,7 +141,7 @@ export function TradeView({ coin }: { coin: string }) {
             }}
           />
           <div className={`tbody${bookOpen ? "" : " nobook"}`}>
-            <PriceChart coin={coin} displayName={displayName(coin)} />
+            <PriceChart coin={coin} displayName={displayName(coin)} lines={lines} />
             <BookColumn coin={coin} display={displayName(coin)} panel={panel} open={bookOpen} />
           </div>
           <BottomTabs />

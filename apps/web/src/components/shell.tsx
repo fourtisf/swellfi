@@ -9,6 +9,7 @@ import { BRAND, HL } from "@/lib/env";
 import { useMarkets } from "@/lib/market";
 import { isActive, NAV, traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
+import { useHlAccount } from "@/lib/trading/account";
 import { openModal, toast } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
 
@@ -68,6 +69,7 @@ function MoreMenu() {
 
 function AccountSlot() {
   const s = useSession();
+  const acct = useHlAccount();
   const [open, setOpen] = useState(false);
   const router = useRouter();
   useEffect(() => {
@@ -97,7 +99,7 @@ function AccountSlot() {
     <div className="acct-wrap" style={{ position: "relative" }}>
       <button className="acct" onClick={() => setOpen((o) => !o)} aria-haspopup="true" aria-expanded={open}>
         <span>
-          {s.status === "needsInvite" ? <b>Finish sign-up</b> : <b title="Balance loads once trading is enabled">{fUsd(NaN)}</b>}{" "}
+          {s.status === "needsInvite" ? <b>Finish sign-up</b> : <b title="Hyperliquid account value">{acct.loaded ? fUsd(acct.summary.accountValue) : "—"}</b>}{" "}
           <span className="mut hide-m">
             {addr.slice(0, 6)}…{addr.slice(-4)}
           </span>

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type ModalName = "wallet" | "waitlist" | "invite" | "cmd" | "picker";
+export type ModalName = "wallet" | "waitlist" | "invite" | "cmd" | "picker" | "deposit" | "withdraw";
 
 interface UiState {
   modal: ModalName | null;

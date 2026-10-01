@@ -12,6 +12,7 @@ import { useNow } from "@/lib/hooks";
 import { loadSparks, useMarkets } from "@/lib/market";
 import { traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
+import { useHlAccount } from "@/lib/trading/account";
 import { openModal } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
 import { ActivityRow, TraderCell } from "./social";
@@ -251,25 +252,65 @@ function Portfolio() {
       </Empty>
     );
   }
+  return <LivePortfolio />;
+}
+
+function LivePortfolio() {
+  const acct = useHlAccount();
+  const router = useRouter();
+  const sm = acct.summary;
   return (
     <>
       <div className="kv" style={{ margin: "16px 18px" }}>
         <div>
           <small>Available</small>
-          <b>—</b>
+          <b>{acct.loaded ? fUsd(sm.withdrawable) : "—"}</b>
         </div>
         <div>
           <small>Unrealized PnL</small>
-          <b>—</b>
+          <b className={sgn(sm.unrealizedPnl)}>{acct.loaded ? fUsd(sm.unrealizedPnl) : "—"}</b>
         </div>
         <div>
           <small>Open positions</small>
-          <b>0</b>
+          <b>{acct.positions.length}</b>
         </div>
       </div>
-      <div className="empty" style={{ paddingTop: 10 }}>
-        Your Hyperliquid balance and positions appear here once trading is enabled.
-      </div>
+      {acct.positions.length ? (
+        <table>
+          <tbody>
+            {acct.positions.map((p) => (
+              <tr key={p.coin} className="click" onClick={() => router.push(tradeHref(p.coin))}>
+                <td>
+                  <div className="who">
+                    <CoinIcon name={p.coin} size={26} />
+                    <span className="n">{displayName(p.coin)}</span>
+                    <span className={`pill ${p.szi > 0 ? "l" : "s"}`}>
+                      {p.szi > 0 ? "Long" : "Short"} {p.leverage.value}x
+                    </span>
+                  </div>
+                </td>
+                <td>{fUsd(p.positionValue)}</td>
+                <td className={sgn(p.unrealizedPnl)}>
+                  <b>{fUsd(p.unrealizedPnl)}</b>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="empty" style={{ paddingTop: 10 }}>
+          {acct.funded ? "No open positions yet." : (
+            <>
+              Deposit USDC to start trading.
+              <div style={{ marginTop: 14 }}>
+                <button className="btn btn-brand" onClick={() => openModal("deposit")}>
+                  Deposit
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 }

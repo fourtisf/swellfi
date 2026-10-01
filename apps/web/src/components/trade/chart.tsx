@@ -9,6 +9,7 @@ import {
   LineStyle,
   TickMarkType,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type Time,
   type UTCTimestamp,
@@ -54,7 +55,13 @@ function Tool({ icon, title, on }: { icon: IconName; title: string; on?: boolean
  * Candle chart (lightweight-charts; TradingView Advanced Charts can replace it once the
  * licence is approved). Snapshot from candleSnapshot, live updates from the WS `candle` feed.
  */
-export function PriceChart({ coin, displayName }: { coin: string; displayName: string }) {
+export interface ChartLine {
+  price: number;
+  color: string;
+  title: string;
+}
+
+export function PriceChart({ coin, displayName, lines = [] }: { coin: string; displayName: string; lines?: ChartLine[] }) {
   const [iv, setIv] = useState<CandleInterval>("15m");
   const box = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -176,6 +183,16 @@ export function PriceChart({ coin, displayName }: { coin: string; displayName: s
       off();
     };
   }, [coin, iv]);
+
+  // Position entry / liquidation lines.
+  const linesKey = JSON.stringify(lines);
+  useEffect(() => {
+    const c = series.current?.c;
+    if (!c) return;
+    const made: IPriceLine[] = lines.map((l) => c.createPriceLine({ price: l.price, color: l.color, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: l.title }));
+    return () => made.forEach((pl) => c.removePriceLine(pl));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linesKey]);
 
   useEffect(() => {
     const tick = () => {

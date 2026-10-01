@@ -16,6 +16,10 @@ const hlHosts = [
   "wss://api.hyperliquid-testnet.xyz",
   process.env.NEXT_PUBLIC_HL_INFO_URL,
   process.env.NEXT_PUBLIC_HL_WS_URL,
+  // Arbitrum RPC for deposits
+  "https://arb1.arbitrum.io",
+  "https://sepolia-rollup.arbitrum.io",
+  process.env.NEXT_PUBLIC_ARB_RPC_URL,
 ].filter(Boolean);
 
 // Report-only until the Privy/WalletConnect host list is confirmed in staging (see NOTES.md).

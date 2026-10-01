@@ -158,9 +158,21 @@ The indexer (Phase 3) must batch requests and back off.
 - `login()` cannot deep-link a single wallet. The prototype's MetaMask, Rabby and WalletConnect buttons therefore all open Privy's wallet list.
 - The server verifies access tokens locally when `PRIVY_VERIFICATION_KEY` is set; otherwise it uses Privy's cached JWKS.
 
+## Phase 2 implementation decisions
+
+- **Named agent.**
+  - The agent is approved as `tideline valid_until <now+90d>`; the SDK excludes the suffix from the 16-char limit. `extraAgents` is used to check it's still live.
+  - Each (re)approval uses a **new** key, so agent addresses are never reused.
+  - Approving from a second device replaces the first device's agent.
+- **`signatureChainId`.** Pinned to the Arbitrum chain the master wallet is switched to: `0xa4b1` on mainnet, `0x66eee` on testnet. Privy is configured with `supportedChains: [arbitrum, arbitrumSepolia]`.
+- **Unified / portfolio-margin accounts.** `userAbstraction` is checked; for those modes, available balance comes from `spotClearinghouseState` and no HIP-3 collateral transfer is attempted.
+- **HIP-3 collateral (standard accounts).** Before a HIP-3 order, if that dex's withdrawable is below the margin needed, the shortfall moves from the main dex with **agent-signed `agentSendAsset`**. This works only to the same user. The token is `name:tokenId` from `meta({dex}).collateralToken` → `spotMeta.tokens`.
+- **Leverage.** `updateLeverage` is sent before an order only when the panel's leverage or margin mode differs from what was last set in this session.
+- **Trading guard.** Trading is disabled unless market data and orders use the same network: asset ids and prices differ between networks.
+
 ## Not verified (needs a check with network access)
 
 1. Whether the `xyz` dex exists on testnet, and its collateral token.
 2. CCTP deposit and withdraw details.
-3. The exact Privy, WalletConnect and Coinbase host list for a strict CSP. The CSP ships **report-only** for now (`apps/web/next.config.mjs`).
+3. The exact Privy, WalletConnect and Coinbase host list for a strict CSP. **Enforce the CSP before mainnet**: the agent key is only as safe as the page is from XSS. The CSP ships **report-only** for now (`apps/web/next.config.mjs`).
 4. TradingView Advanced Charts licence. Until it's approved we use `lightweight-charts` 4.2, whose Apache-2.0 licence requires the TradingView attribution logo shown on the chart.

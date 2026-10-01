@@ -4,3 +4,6 @@ export * from "./info";
 export * from "./markets";
 export * from "./ws";
 export * from "./math";
+export * from "./trading";
+export * from "./bridge";
+export * from "./exchange";
