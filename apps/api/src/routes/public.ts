@@ -19,6 +19,7 @@ export async function publicRoutes(app: FastifyInstance, ctx: AppContext) {
     brand: env.NEXT_PUBLIC_BRAND_NAME,
     inviteOnly: env.INVITE_ONLY,
     network: env.NEXT_PUBLIC_HL_NETWORK,
+    privy: Boolean(env.NEXT_PUBLIC_PRIVY_APP_ID && env.PRIVY_APP_SECRET),
   }));
 
   /** Platform stats: users, TVL (sum of latest account values), volume, trades. */

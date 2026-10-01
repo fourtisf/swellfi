@@ -10,6 +10,7 @@ import { api, ApiError, type PublicUser } from "@/lib/api";
 import { BRAND } from "@/lib/env";
 import { useWatchlist } from "@/lib/hooks";
 import { useMarkets } from "@/lib/market";
+import { discoverWallets } from "@/lib/injected";
 import { NAV, traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
 import { openModal, toast, useUi } from "@/lib/ui-store";
@@ -19,10 +20,16 @@ import { MoneyModals } from "./trade/money-modals";
 function WalletModal() {
   const s = useSession();
   const close = useUi((u) => u.closeModal);
-  const go = (m: "email" | "wallet") => {
+  const [detected, setDetected] = useState<string[]>([]);
+  const on = useUi((u) => u.modal === "wallet");
+  useEffect(() => {
+    if (on) void discoverWallets().then((l) => setDetected(l.map((w) => w.id)));
+  }, [on]);
+  const go = (m: "email" | "wallet", id?: string) => {
     close();
-    s.login(m);
+    s.login(m, id);
   };
+  const tag = (id: string) => (detected.includes(id) ? <span className="tag">Detected</span> : null);
   return (
     <Modal name="wallet" className="glass glow-border">
       <h3>Connect a wallet</h3>
@@ -30,19 +37,19 @@ function WalletModal() {
         Funds stay in your own Hyperliquid account. {BRAND} can place trades for you but can never withdraw.
       </p>
       <button className="wopt" onClick={() => go("email")}>
-        <i style={{ background: "linear-gradient(135deg,#2EE09C,#0FA968)" }}>@</i>Continue with email<span className="tag">Fastest</span>
+        <i style={{ background: "linear-gradient(135deg,#2EE09C,#0FA968)" }}>@</i>Continue with email{s.privy ? <span className="tag">Fastest</span> : <span className="tag dim">Needs Privy</span>}
       </button>
-      <button className="wopt" onClick={() => go("wallet")}>
-        <i style={{ background: "#F6A04D" }}>M</i>MetaMask
+      <button className="wopt" onClick={() => go("wallet", "io.metamask")}>
+        <i style={{ background: "#F6A04D" }}>M</i>MetaMask{tag("io.metamask")}
       </button>
-      <button className="wopt" onClick={() => go("wallet")}>
-        <i style={{ background: "#8697FF" }}>R</i>Rabby
+      <button className="wopt" onClick={() => go("wallet", "io.rabby")}>
+        <i style={{ background: "#8697FF" }}>R</i>Rabby{tag("io.rabby")}
       </button>
-      <button className="wopt" onClick={() => go("wallet")}>
+      <button className="wopt" onClick={() => (s.privy ? go("wallet") : toast("WalletConnect needs Privy (set NEXT_PUBLIC_PRIVY_APP_ID). Use a browser wallet for now."))}>
         <i style={{ background: "#5FB2FF" }}>W</i>WalletConnect
       </button>
       <p className="dim" style={{ fontSize: 12, margin: "16px 0 0" }}>
-        {s.inviteOnly ? `${BRAND} is invite-only for now. You'll be asked for your invite code after connecting.` : "New here? Connecting creates your account."}
+        {s.inviteOnly ? `${BRAND} is invite-only for now. You'll be asked for your invite code after connecting.` : "New here? Connecting creates your account."} You&apos;ll sign a message to prove you own the wallet; it costs no gas.
       </p>
     </Modal>
   );

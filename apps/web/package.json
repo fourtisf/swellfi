@@ -32,6 +32,7 @@
     "eslint": "8.57.1",
     "eslint-config-next": "14.2.35",
     "typescript": "5.9.3",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "@nktkas/hyperliquid": "0.33.3"
   }
 }

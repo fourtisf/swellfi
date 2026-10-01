@@ -2,24 +2,28 @@
 
 import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { createWalletClient, custom, type WalletClient } from "viem";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createWalletClient, custom, getAddress, toHex, type WalletClient } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { api, ApiError, setTokenGetter, type Me } from "./api";
 import { BRAND, HL, PRIVY_APP_ID } from "./env";
+import { ensureChain, pickWallet, type InjectedWallet } from "./injected";
 import { openModal, toast } from "./ui-store";
 
 export type SessionStatus = "loading" | "anon" | "needsInvite" | "ready";
 
 export interface Session {
-  /** False when NEXT_PUBLIC_PRIVY_APP_ID isn't set: login is disabled. */
+  /** True when Privy is configured (email login + embedded wallets); otherwise browser-wallet sign-in. */
   configured: boolean;
+  /** Privy (email + embedded wallets) vs. direct browser-wallet sign-in. */
+  privy: boolean;
   status: SessionStatus;
   me: Me | null;
   /** The Privy user's master wallet (embedded or external). */
   walletAddress: string | null;
   inviteOnly: boolean;
-  login(method: "email" | "wallet"): void;
+  /** `walletId` is an EIP-6963 rdns (e.g. "io.metamask") to pick a specific browser wallet. */
+  login(method: "email" | "wallet", walletId?: string): void;
   logout(): Promise<void>;
   /**
    * Signer for the master wallet, switched to `chainId` (Arbitrum / Arbitrum Sepolia).
@@ -41,22 +45,162 @@ function useInviteOnly() {
   return q.data?.inviteOnly ?? true;
 }
 
-function NoAuthSession({ children }: { children: ReactNode }) {
+const WALLET_KEY = "tl:wallet-session";
+
+interface StoredWalletSession {
+  token: string;
+  address: string;
+  walletId: string;
+  expiresAt: number;
+}
+
+function readStored(): StoredWalletSession | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(WALLET_KEY) ?? "null") as StoredWalletSession | null;
+    return v && v.expiresAt > Date.now() ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sign-in with a browser wallet (MetaMask, Rabby, any EIP-6963 wallet), verified by our API.
+ * Used when Privy isn't configured. Email login needs Privy.
+ */
+function WalletSession({ children }: { children: ReactNode }) {
   const inviteOnly = useInviteOnly();
+  const qc = useQueryClient();
+  const [sess, setSess] = useState<StoredWalletSession | null>(null);
+  const [booted, setBooted] = useState(false);
+  const wallet = useRef<InjectedWallet | null>(null);
+  const prompted = useRef<string | null>(null);
+
+  const clear = useCallback(() => {
+    try {
+      localStorage.removeItem(WALLET_KEY);
+    } catch {
+      /* storage blocked */
+    }
+    wallet.current = null;
+    setSess(null);
+    qc.removeQueries({ queryKey: ["me"] });
+    qc.removeQueries({ queryKey: ["watchlist"] });
+    qc.removeQueries({ queryKey: ["rewards"] });
+  }, [qc]);
+
+  // Restore a saved session and re-attach to the same wallet.
+  useEffect(() => {
+    const saved = readStored();
+    (async () => {
+      if (saved) {
+        const w = await pickWallet(saved.walletId);
+        const accounts = w ? ((await w.provider.request({ method: "eth_accounts" }).catch(() => [])) as string[]) : [];
+        if (w && accounts.map((a) => a.toLowerCase()).includes(saved.address)) {
+          wallet.current = w;
+          setSess(saved);
+        } else clear();
+      }
+      setBooted(true);
+    })();
+  }, [clear]);
+
+  useEffect(() => setTokenGetter(async () => sess?.token ?? null), [sess]);
+
+  // Switching or disconnecting accounts in the wallet ends the session.
+  useEffect(() => {
+    const p = wallet.current?.provider;
+    if (!p || !sess) return;
+    const onAccounts = (accs: unknown) => {
+      const list = (accs as string[]).map((a) => a.toLowerCase());
+      if (!list.includes(sess.address)) {
+        clear();
+        toast("Wallet changed. Log in again.");
+      }
+    };
+    p.on("accountsChanged", onAccounts);
+    return () => p.removeListener("accountsChanged", onAccounts);
+  }, [sess, clear]);
+
+  const me = useQuery({
+    queryKey: ["me", sess?.address],
+    enabled: Boolean(sess),
+    retry: (n, e) => !(e instanceof ApiError && (e.status === 404 || e.status === 401)) && n < 2,
+    queryFn: async () => {
+      try {
+        return await api<Me>("/me");
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null;
+        if (e instanceof ApiError && e.status === 401) clear();
+        throw e;
+      }
+    },
+  });
+
+  let status: SessionStatus = "loading";
+  if (booted && !sess) status = "anon";
+  else if (sess && me.isSuccess) status = me.data ? "ready" : "needsInvite";
+  else if (sess && me.isError) status = "anon";
+
+  useEffect(() => {
+    if (status === "needsInvite" && sess && prompted.current !== sess.address) {
+      prompted.current = sess.address;
+      openModal("invite");
+    }
+  }, [status, sess]);
+
+  const login = useCallback(
+    async (method: "email" | "wallet", walletId?: string) => {
+      if (method === "email") return toast("Email login needs Privy (set NEXT_PUBLIC_PRIVY_APP_ID). Use a browser wallet instead.");
+      const w = await pickWallet(walletId);
+      if (!w) return toast("No browser wallet found. Install MetaMask or Rabby, then try again.");
+      try {
+        const [address] = (await w.provider.request({ method: "eth_requestAccounts" })) as string[];
+        if (!address) throw new Error("No account selected");
+        const { message } = await api<{ message: string }>("/auth/nonce", { method: "POST", body: { address } });
+        const signature = (await w.provider.request({ method: "personal_sign", params: [toHex(message), address as `0x${string}`] })) as string;
+        const r = await api<{ token: string; expiresAt: number }>("/auth/wallet", { method: "POST", body: { address, signature } });
+        const next: StoredWalletSession = { token: r.token, expiresAt: r.expiresAt, address: address.toLowerCase(), walletId: w.id };
+        try {
+          localStorage.setItem(WALLET_KEY, JSON.stringify(next));
+        } catch {
+          /* session lasts for this tab only */
+        }
+        wallet.current = w;
+        setTokenGetter(async () => next.token);
+        setSess(next);
+        toast(`Connected ${w.name}`);
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        toast(/reject|denied/i.test(m) ? "Request cancelled in your wallet" : m);
+      }
+    },
+    [],
+  );
+
+  const getMasterWallet = useCallback(
+    async (chainId: number) => {
+      const w = wallet.current;
+      if (!w || !sess) throw new Error("Your wallet isn't connected. Log in again.");
+      await ensureChain(w.provider, chainId);
+      const chain = chainId === arbitrum.id ? arbitrum : arbitrumSepolia;
+      return createWalletClient({ account: getAddress(sess.address), chain, transport: custom(w.provider) });
+    },
+    [sess],
+  );
+
   const value = useMemo<Session>(
     () => ({
-      configured: false,
-      status: "anon",
-      me: null,
-      walletAddress: null,
+      configured: true,
+      privy: false,
+      status,
+      me: me.data ?? null,
+      walletAddress: sess?.address ?? null,
       inviteOnly,
-      login: () => toast("Login isn't configured yet (set NEXT_PUBLIC_PRIVY_APP_ID)"),
-      logout: async () => {},
-      getMasterWallet: async () => {
-        throw new Error("Login isn't configured");
-      },
+      login: (m, id) => void login(m, id),
+      logout: async () => clear(),
+      getMasterWallet,
     }),
-    [inviteOnly],
+    [status, me.data, sess, inviteOnly, login, clear, getMasterWallet],
   );
   return <SessionCtx.Provider value={value}>{children}</SessionCtx.Provider>;
 }
@@ -115,6 +259,7 @@ function PrivySession({ children }: { children: ReactNode }) {
   const value = useMemo<Session>(
     () => ({
       configured: true,
+      privy: true,
       status,
       me: me.data ?? null,
       walletAddress,
@@ -135,7 +280,7 @@ function PrivySession({ children }: { children: ReactNode }) {
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  if (!PRIVY_APP_ID) return <NoAuthSession>{children}</NoAuthSession>;
+  if (!PRIVY_APP_ID) return <WalletSession>{children}</WalletSession>;
   return (
     <PrivyProvider
       appId={PRIVY_APP_ID}

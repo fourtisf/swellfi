@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
 const bool = z
@@ -15,6 +16,8 @@ const schema = z.object({
   NEXT_PUBLIC_PRIVY_APP_ID: z.string().default(""),
   PRIVY_APP_SECRET: z.string().default(""),
   PRIVY_VERIFICATION_KEY: z.string().default(""),
+  /** HMAC secret for wallet sign-in sessions (≥ 32 chars). Required in production. */
+  SESSION_SECRET: z.string().default(""),
   NEXT_PUBLIC_HL_NETWORK: z.enum(["testnet", "mainnet"]).default("testnet"),
   NEXT_PUBLIC_BRAND_NAME: z.string().default("Tideline"),
   INVITE_ONLY: bool.default("true"),
@@ -40,5 +43,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ");
     throw new Error(`Invalid environment:\n  ${msg}`);
   }
-  return parsed.data;
+  const env = parsed.data;
+  if (env.SESSION_SECRET.length < 32) {
+    if (env.NODE_ENV === "production") throw new Error("Invalid environment:\n  SESSION_SECRET: must be at least 32 characters");
+    // Dev/test: a per-process secret (wallet sessions end when the API restarts).
+    env.SESSION_SECRET = randomBytes(32).toString("hex");
+  }
+  return env;
 }

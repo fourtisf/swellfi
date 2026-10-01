@@ -47,7 +47,8 @@ Then open http://localhost:3000.
 |---|---|
 | `NEXT_PUBLIC_BRAND_NAME` | Placeholder brand (`Tideline`) |
 | `APP_URL` | Public origin. Used for CORS and referral links |
-| `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET` | From the Privy dashboard. Enable email login, embedded Ethereum wallets and external wallets |
+| `SESSION_SECRET` | **Required in production** (≥ 32 chars). Signs wallet sign-in sessions |
+| `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET` | **Optional.** Without them, login is a browser wallet (MetaMask, Rabby, any EIP-6963 wallet) signing a one-time message that the API verifies. With them, Privy adds email login, embedded wallets and WalletConnect |
 | `PRIVY_VERIFICATION_KEY` | Optional. Verifies tokens locally, without fetching Privy's JWKS |
 | `NEXT_PUBLIC_HL_NETWORK` | `testnet` (default) or `mainnet`. **Mainnet requires ALFA's sign-off** |
 | `NEXT_PUBLIC_HL_DATA_NETWORK` | Optional. Market data from another network (e.g. mainnet prices in a demo) |
@@ -77,15 +78,35 @@ Then open http://localhost:3000.
 | `pnpm --filter @tideline/db exec tsx src/seed.ts --purge-demo` | Delete all demo rows |
 | `pnpm mock:hl` | Local mock Hyperliquid API + WS on :4100, for offline dev and e2e |
 
-### End-to-end smoke tests
+### End-to-end tests (full trading lifecycle, offline)
+
+`apps/web/e2e/mock-hl.mjs` behaves like Hyperliquid for everything the app uses:
+
+- Market data.
+- `/exchange` with **the same signature checks as Hyperliquid**: L1 actions must come from an approved agent; user-signed actions from the user.
+- Builder-fee approval enforcement.
+- Order matching with TP/SL triggers.
+- Deposits through a mock Arbitrum RPC.
+
+`e2e/trading.spec.ts` drives the real UI with a test wallet:
+
+1. Connect the wallet, then redeem an invite.
+2. Deposit (the minimum is checked).
+3. Enable trading.
+4. Market buy with a TP.
+5. The TP fires.
+6. Withdraw.
 
 ```bash
-pnpm mock:hl &                                    # mock Hyperliquid
+pnpm mock:hl &
 NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://localhost:4100/ws \
+NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc NEXT_PUBLIC_BUILDER_ADDRESS=0x000000000000000000000000000000000000b0b1 \
   pnpm --filter @tideline/web build
-pnpm start &                                      # API + web
-pnpm --filter @tideline/web e2e                   # Playwright (set CHROMIUM_PATH if needed)
+pnpm --filter @tideline/api build && pnpm start &   # API + web
+pnpm --filter @tideline/web e2e                     # Playwright (set CHROMIUM_PATH if needed)
 ```
+
+The waitlist test hits the real 5/minute rate limit if the suite runs several times within a minute.
 
 ### Admin: approving the waitlist
 
@@ -115,8 +136,8 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 1. Fill in `.env` and rebuild the web app:
    - `NEXT_PUBLIC_HL_NETWORK=testnet`
    - `NEXT_PUBLIC_HL_DATA_NETWORK` empty
-   - Privy keys
    - `NEXT_PUBLIC_BUILDER_ADDRESS`
+   - Privy keys are optional; MetaMask/Rabby work without them.
 2. Fund the builder wallet with ≥ 100 USDC perps value on testnet.
 3. Prepare a test user wallet. The **testnet faucet only pays addresses that have made a mainnet deposit**. Claim 1,000 mock USDC at https://app.hyperliquid-testnet.xyz/drip, or bridge test USDC on Arbitrum Sepolia, and keep a little Sepolia ETH for gas.
 4. Log in, redeem an invite, then **Deposit** (≥ 5 USDC) → **Enable trading** (two signatures).

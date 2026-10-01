@@ -16,7 +16,7 @@ const app = await buildApp({
 });
 
 if (!env.NEXT_PUBLIC_PRIVY_APP_ID || !env.PRIVY_APP_SECRET) {
-  app.log.warn("Privy is not configured: login and every signed-in route will return 401");
+  app.log.info("Privy is not configured: wallet sign-in (MetaMask, Rabby, …) only, no email login");
 }
 
 let closing = false;

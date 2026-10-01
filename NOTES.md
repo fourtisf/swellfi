@@ -170,6 +170,11 @@ The indexer (Phase 3) must batch requests and back off.
 - **Leverage.** `updateLeverage` is sent before an order only when the panel's leverage or margin mode differs from what was last set in this session.
 - **Trading guard.** Trading is disabled unless market data and orders use the same network: asset ids and prices differ between networks.
 
+## Verification done offline
+
+- **Action hashing.** The L1 action hash produced by the SDK for our orders matches the official Python SDK's `action_hash` (msgpack + nonce + vault flag, keccak) byte for byte. Checked for a TP/SL group and a HIP-3 stop order.
+- **EIP-712 types.** The user-signed EIP-712 types in the mock exchange (`ApproveAgent`, `ApproveBuilderFee`, `Withdraw`, `SendAsset`) are copied from the official Python SDK. The full UI lifecycle passes against it: connect, deposit, enable, order with TP, TP trigger, withdraw (`apps/web/e2e/trading.spec.ts`).
+
 ## Not verified (needs a check with network access)
 
 1. Whether the `xyz` dex exists on testnet, and its collateral token.

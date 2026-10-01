@@ -11,6 +11,8 @@ import { errorHandler, forbidden, unauthorized } from "./lib/http";
 import { loadTiers, type Tier } from "./lib/rewards";
 import { accountRoutes } from "./routes/account";
 import { adminRoutes } from "./routes/admin";
+import { authRoutes } from "./routes/auth";
+import { withWalletSessions } from "./lib/wallet-auth";
 import { publicRoutes } from "./routes/public";
 import { socialRoutes } from "./routes/social";
 import { gateway } from "./ws/gateway";
@@ -42,7 +44,9 @@ declare module "fastify" {
 }
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
-  const { env, prisma, redis, auth } = deps;
+  const { env, prisma, redis } = deps;
+  // Wallet sign-in sessions work everywhere; Privy tokens are accepted when Privy is configured.
+  const auth = withWalletSessions(deps.auth, env.SESSION_SECRET);
   const app = Fastify({
     logger: deps.logger ?? (env.NODE_ENV === "development" ? { transport: { target: "pino-pretty" } } : env.NODE_ENV !== "test"),
     trustProxy: env.TRUST_PROXY,
@@ -51,6 +55,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   const ctx: AppContext = {
     ...deps,
+    auth,
     tiers: loadTiers(env.REWARD_TIERS_JSON),
     identify(req) {
       if (!req._identity) {
@@ -96,6 +101,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   await app.register(
     async (api) => {
+      await authRoutes(api, ctx);
       await publicRoutes(api, ctx);
       await socialRoutes(api, ctx);
       await accountRoutes(api, ctx);

@@ -717,3 +717,4 @@ footer a{color:var(--muted)}footer a:hover{color:var(--text)}
 .warnbox{margin-top:10px;font-size:12.5px;color:#F5B53D;background:rgba(245,181,61,.08);border:1px solid rgba(245,181,61,.25);border-radius:10px;padding:8px 10px}
 .mainnet-confirm{background:#F5B53D!important;color:#1A1200!important}
 .tbottom td .follow{height:28px;padding:0 10px}
+.btabs{overflow-x:auto}.btabs .seg button{white-space:nowrap}

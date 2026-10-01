@@ -165,3 +165,37 @@ describe("social reads", () => {
     expect(r.json().tiers[0].name).toBe("Current");
   });
 });
+
+describe("wallet sign-in", () => {
+  it("issues a session for a signed nonce and accepts it as a bearer token", async () => {
+    const { privateKeyToAccount, generatePrivateKey } = await import("viem/accounts");
+    const acc = privateKeyToAccount(generatePrivateKey());
+    const n = await t.app.inject({ method: "POST", url: "/api/auth/nonce", payload: { address: acc.address } });
+    const { message } = n.json();
+    expect(message).toContain(acc.address);
+    // wrong signer
+    const other = privateKeyToAccount(generatePrivateKey());
+    const bad = await t.app.inject({ method: "POST", url: "/api/auth/wallet", payload: { address: acc.address, signature: await other.signMessage({ message }) } });
+    expect(bad.json().error).toBe("BAD_SIGNATURE");
+    // nonce is single-use: get a fresh one
+    const { message: m2 } = (await t.app.inject({ method: "POST", url: "/api/auth/nonce", payload: { address: acc.address } })).json();
+    const ok = await t.app.inject({ method: "POST", url: "/api/auth/wallet", payload: { address: acc.address, signature: await acc.signMessage({ message: m2 }) } });
+    expect(ok.statusCode).toBe(200);
+    const { token } = ok.json();
+    const replay = await t.app.inject({ method: "POST", url: "/api/auth/wallet", payload: { address: acc.address, signature: await acc.signMessage({ message: m2 }) } });
+    expect(replay.json().error).toBe("NONCE_EXPIRED");
+
+    const auth = { authorization: `Bearer ${token}` };
+    expect((await t.app.inject({ url: "/api/me", headers: auth })).statusCode).toBe(404);
+    await t.prisma.inviteCode.create({ data: { code: "TIDE-WALLET" } });
+    const reg = await t.app.inject({ remoteAddress: "10.9.9.9", method: "POST", url: "/api/invite/redeem", headers: auth, payload: { code: "TIDE-WALLET", address: acc.address, acceptTerms: true } });
+    expect(reg.json()).toMatchObject({ created: true, user: { address: acc.address.toLowerCase() } });
+    // can't bind someone else's address
+    const steal = await t.app.inject({ remoteAddress: "10.9.9.9", method: "POST", url: "/api/invite/redeem", headers: auth, payload: { code: "TIDE-WALLET", address: other.address, acceptTerms: true } });
+    expect(steal.json().created).toBe(false);
+    expect((await t.app.inject({ url: "/api/me", headers: auth })).json().user.address).toBe(acc.address.toLowerCase());
+    // tampered token
+    const forged = token.slice(0, -2) + (token.endsWith("AA") ? "BB" : "AA");
+    expect((await t.app.inject({ url: "/api/me", headers: { authorization: `Bearer ${forged}` } })).statusCode).toBe(401);
+  });
+});

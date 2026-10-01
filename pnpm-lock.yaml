@@ -38,6 +38,9 @@ importers:
       ioredis:
         specifier: 5.11.1
         version: 5.11.1
+      viem:
+        specifier: 2.57.2
+        version: 2.57.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76)
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -109,6 +112,9 @@ importers:
       '@next/env':
         specifier: 14.2.35
         version: 14.2.35
+      '@nktkas/hyperliquid':
+        specifier: 0.33.3
+        version: 0.33.3(typescript@5.9.3)
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
@@ -11923,7 +11929,6 @@ snapshots:
       - bufferutil
       - utf-8-validate
       - zod
-    optional: true
 
   viem@2.57.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.5):
     dependencies:
