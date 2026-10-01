@@ -70,7 +70,7 @@ function WaitlistModal() {
       setX("");
       toast("You're on the waitlist. We'll email your invite.");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Couldn't join the waitlist");
+      toast(e instanceof Error ? e.message : "Couldn't join the waitlist", "err");
     } finally {
       setBusy(false);
     }
@@ -350,14 +350,18 @@ function CmdModal() {
 
 function Toast() {
   const msg = useUi((s) => s.toastMsg);
-  const [last, setLast] = useState("");
+  const kind = useUi((s) => s.toastKind);
+  const [last, setLast] = useState<{ msg: string; kind: string }>({ msg: "", kind: "ok" });
   useEffect(() => {
-    if (msg) setLast(msg);
-  }, [msg]);
+    if (msg) setLast({ msg, kind });
+  }, [msg, kind]);
+  const k = msg ? kind : last.kind;
   return (
-    <div className={`toast glass${msg ? " on" : ""}`} role="status" aria-live="polite">
-      <Icon name="check" size={18} />
-      {msg ?? last}
+    <div className={`toast glass ${k}${msg ? " on" : ""}`} role={k === "err" ? "alert" : "status"} aria-live="polite">
+      <span className="ti">
+        <Icon name={k === "err" ? "x" : k === "info" ? "bolt" : "check"} size={14} />
+      </span>
+      {msg ?? last.msg}
     </div>
   );
 }

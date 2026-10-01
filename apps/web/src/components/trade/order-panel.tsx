@@ -1,7 +1,7 @@
 "use client";
 
 import { displayName, estimateOrder, HL_FEES, MIN_ORDER_USD, type Market } from "@tideline/hl";
-import { fPx, fUsd, pxInput, sgn } from "@tideline/ui";
+import { fPx, fUsd, pxInput, sgn, Skel } from "@tideline/ui";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { BUILDER_RATE, HL } from "@/lib/env";
 import { useMarkets } from "@/lib/market";
@@ -55,7 +55,7 @@ function LeveragePopover({ max, onClose }: { max: number; onClose(): void }) {
 function AccountCard({ acct }: { acct: HlAccount | null }) {
   const ready = Boolean(acct?.user);
   const s = acct?.summary;
-  const v = (n: number | undefined, f: (x: number) => string = (x) => fUsd(x)) => (ready && acct!.loaded && n != null ? f(n) : "—");
+  const v = (n: number | undefined, f: (x: number) => string = (x) => fUsd(x)) => (!ready ? "—" : acct!.loaded && n != null ? f(n) : <Skel />);
   return (
     <div className="tacc" id="accCard">
       <div className="h">
@@ -215,7 +215,7 @@ export function OrderPanel({ market }: { market: Market }) {
       await trading.enableTrading();
       toast("Trading enabled. You can place orders now.");
     } catch (e) {
-      toast(errMsg(e));
+      toast(errMsg(e), "err");
     } finally {
       setBusy(false);
     }
@@ -223,9 +223,9 @@ export function OrderPanel({ market }: { market: Market }) {
 
   const submit = async () => {
     if (!canTrade || busy) return;
-    if (!est.notional) return toast("Enter a size");
-    if (!f.reduceOnly && est.notional < MIN_ORDER_USD) return toast(`Minimum order value is $${MIN_ORDER_USD}`);
-    if (!f.reduceOnly && margin > available * 1.0001) return toast("Not enough available USDC");
+    if (!est.notional) return toast("Enter a size", "info");
+    if (!f.reduceOnly && est.notional < MIN_ORDER_USD) return toast(`Minimum order value is $${MIN_ORDER_USD}`, "info");
+    if (!f.reduceOnly && margin > available * 1.0001) return toast("Not enough available USDC", "info");
     if (HL.network === "mainnet" && !armed) {
       setArmed(true);
       if (armTimer.current) clearTimeout(armTimer.current);
@@ -257,7 +257,7 @@ export function OrderPanel({ market }: { market: Market }) {
       setPctV(0);
       setSheet(false);
     } catch (e) {
-      toast(errMsg(e));
+      toast(errMsg(e), "err");
     } finally {
       setBusy(false);
     }
@@ -332,6 +332,12 @@ export function OrderPanel({ market }: { market: Market }) {
           Sell / Short
         </button>
       </div>
+      {live && (
+        <div className="avail">
+          <span>Available to trade</span>
+          <b>{acct.loaded ? fUsd(available) : <Skel />}</b>
+        </div>
+      )}
       <div className="frow" hidden={f.otype === "market"}>
         <label>
           {f.otype === "stop" || f.otype === "stopLimit" ? "Trigger" : "Price"} <span className="dim">(USDC)</span>

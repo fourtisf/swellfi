@@ -1,7 +1,7 @@
 "use client";
 
 import { displayName } from "@tideline/hl";
-import { Avatar, CoinIcon, fUsd, Icon, Logo, type IconName } from "@tideline/ui";
+import { Avatar, CoinIcon, fUsd, Icon, Logo, Skel, type IconName } from "@tideline/ui";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -99,7 +99,7 @@ function AccountSlot() {
     <div className="acct-wrap" style={{ position: "relative" }}>
       <button className="acct" onClick={() => setOpen((o) => !o)} aria-haspopup="true" aria-expanded={open}>
         <span>
-          {s.status === "needsInvite" ? <b>Finish sign-up</b> : <b title="Hyperliquid account value">{acct.loaded ? fUsd(acct.summary.accountValue) : "—"}</b>}{" "}
+          {s.status === "needsInvite" ? <b>Finish sign-up</b> : <b title="Hyperliquid account value">{acct.loaded ? fUsd(acct.summary.accountValue) : <Skel />}</b>}{" "}
           <span className="mut hide-m">
             {addr.slice(0, 6)}…{addr.slice(-4)}
           </span>

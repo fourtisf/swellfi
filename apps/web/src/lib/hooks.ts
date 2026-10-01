@@ -45,7 +45,7 @@ export function useWatchlist() {
     },
     onError: (e, _v, c) => {
       qc.setQueryData(["watchlist"], c?.prev);
-      toast(e instanceof Error ? e.message : "Couldn't update watchlist");
+      toast(e instanceof Error ? e.message : "Couldn't update watchlist", "err");
     },
     onSuccess: (r) => qc.setQueryData(["watchlist"], r.coins),
   });

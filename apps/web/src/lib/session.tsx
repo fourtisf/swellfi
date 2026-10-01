@@ -150,9 +150,9 @@ function WalletSession({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (method: "email" | "wallet", walletId?: string) => {
-      if (method === "email") return toast("Email login needs Privy (set NEXT_PUBLIC_PRIVY_APP_ID). Use a browser wallet instead.");
+      if (method === "email") return toast("Email login needs Privy (set NEXT_PUBLIC_PRIVY_APP_ID). Use a browser wallet instead.", "info");
       const w = await pickWallet(walletId);
-      if (!w) return toast("No browser wallet found. Install MetaMask or Rabby, then try again.");
+      if (!w) return toast("No browser wallet found. Install MetaMask or Rabby, then try again.", "info");
       try {
         const [address] = (await w.provider.request({ method: "eth_requestAccounts" })) as string[];
         if (!address) throw new Error("No account selected");
@@ -171,7 +171,7 @@ function WalletSession({ children }: { children: ReactNode }) {
         toast(`Connected ${w.name}`);
       } catch (e) {
         const m = e instanceof Error ? e.message : String(e);
-        toast(/reject|denied/i.test(m) ? "Request cancelled in your wallet" : m);
+        toast(/reject|denied/i.test(m) ? "Request cancelled in your wallet" : m, "err");
       }
     },
     [],

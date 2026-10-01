@@ -120,7 +120,7 @@ export function BottomTabs() {
     try {
       toast(ok(await fn()));
     } catch (e) {
-      toast(errMsg(e));
+      toast(errMsg(e), "err");
     } finally {
       setBusy(null);
     }

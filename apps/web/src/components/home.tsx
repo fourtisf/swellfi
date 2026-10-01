@@ -2,12 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { change24h, displayName, type Market } from "@tideline/hl";
-import { CoinIcon, Empty, fPct, fUsd, Icon, sgn, Sparkline } from "@tideline/ui";
+import { CoinIcon, Empty, fPct, fUsd, Icon, sgn, Skel, SkelRows, Sparkline } from "@tideline/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type ActivityItem, type LeaderRow } from "@/lib/api";
-import { BRAND } from "@/lib/env";
+import { BRAND, HL } from "@/lib/env";
 import { useNow } from "@/lib/hooks";
 import { loadSparks, useMarkets } from "@/lib/market";
 import { traderHref, tradeHref } from "@/lib/routes";
@@ -78,19 +78,19 @@ function PlatformStats() {
   return (
     <div className="pstats" id="stats">
       <div>
-        <b>{d ? d.users.toLocaleString() : "—"}</b>
+        <b>{d ? d.users.toLocaleString() : <Skel />}</b>
         <span>Global users</span>
       </div>
       <div className="hl">
-        <b>{d ? fUsd(+d.tvl, 0) : "—"}</b>
+        <b>{d ? fUsd(+d.tvl, 0) : <Skel w="lg" />}</b>
         <span>Platform TVL</span>
       </div>
       <div>
-        <b>{d ? fUsd(+d.volume, 0) : "—"}</b>
+        <b>{d ? fUsd(+d.volume, 0) : <Skel w="lg" />}</b>
         <span>Trading volume</span>
       </div>
       <div>
-        <b>{d ? d.trades.toLocaleString() : "—"}</b>
+        <b>{d ? d.trades.toLocaleString() : <Skel />}</b>
         <span>Trades placed</span>
       </div>
     </div>
@@ -144,7 +144,7 @@ function LiveActivity() {
         {items.length ? (
           items.map((a) => <ActivityRow key={a.id} a={a} now={now} fresh={a.id === freshId} />)
         ) : (
-          <div className="empty">{acts.isLoading ? "Loading activity…" : "No activity yet. Trades show up here as they happen."}</div>
+          acts.isLoading ? <SkelRows n={5} /> : <div className="empty">No activity yet. Trades show up here as they happen.</div>
         )}
       </div>
     </div>
@@ -226,8 +226,8 @@ function MarketsTable() {
               ))
             ) : (
               <tr>
-                <td colSpan={6}>
-                  <div className="empty">{status === "error" ? "Couldn't reach Hyperliquid. Retrying…" : "Loading markets…"}</div>
+                <td colSpan={6} style={{ padding: 0 }}>
+                  {status === "error" ? <div className="empty">Couldn&apos;t reach Hyperliquid. Retrying…</div> : <SkelRows n={6} />}
                 </td>
               </tr>
             )}
@@ -264,11 +264,11 @@ function LivePortfolio() {
       <div className="kv" style={{ margin: "16px 18px" }}>
         <div>
           <small>Available</small>
-          <b>{acct.loaded ? fUsd(sm.withdrawable) : "—"}</b>
+          <b>{acct.loaded ? fUsd(sm.withdrawable) : <Skel />}</b>
         </div>
         <div>
           <small>Unrealized PnL</small>
-          <b className={sgn(sm.unrealizedPnl)}>{acct.loaded ? fUsd(sm.unrealizedPnl) : "—"}</b>
+          <b className={sgn(sm.unrealizedPnl)}>{acct.loaded ? fUsd(sm.unrealizedPnl) : <Skel />}</b>
         </div>
         <div>
           <small>Open positions</small>
@@ -318,6 +318,7 @@ function LivePortfolio() {
 function TopTraders() {
   const q = useQuery({ queryKey: ["leaderboard", "7d", 5], queryFn: () => api<{ rows: LeaderRow[] }>("/leaderboard?tf=7d&limit=5") });
   const router = useRouter();
+  if (q.isLoading) return <SkelRows n={5} />;
   return (
     <table>
       <tbody>
@@ -351,7 +352,13 @@ export function HomeView() {
   return (
     <section className="view on" id="v-home">
       <div className="hero2 glass glow-border">
-        <h1>Every trade leaves a wake.</h1>
+        <span className="hero-chip">
+          <span className="dot live" />
+          Live on Hyperliquid{HL.network === "testnet" ? " · Testnet" : ""}
+        </span>
+        <h1>
+          Every trade leaves a <em>wake</em>.
+        </h1>
         <p>Trade crypto, stocks and commodities with leverage. Follow the traders worth following and build a track record of your own.</p>
         <HeroCtas />
         <PlatformStats />

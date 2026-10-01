@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Avatar, fPct, fUsd, sgn, Sparkline } from "@tideline/ui";
+import { Avatar, fPct, fUsd, sgn, SkelRows, Sparkline } from "@tideline/ui";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, type LeaderRow, type Timeframe } from "@/lib/api";
@@ -95,8 +95,8 @@ export function RankingsView() {
             ))}
             {!rows.length && (
               <tr>
-                <td colSpan={8}>
-                  <div className="empty">{q.isLoading ? "Loading rankings…" : "No ranked traders yet."}</div>
+                <td colSpan={8} style={{ padding: 0 }}>
+                  {q.isLoading ? <SkelRows n={8} /> : <div className="empty">No ranked traders yet.</div>}
                 </td>
               </tr>
             )}

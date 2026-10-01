@@ -4,7 +4,7 @@ test("home shows live markets, platform stats and activity", async ({ page }) =>
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Every trade leaves a wake." })).toBeVisible();
   await expect(page.locator("#v-home tbody tr.click").first()).toBeVisible();
-  await expect(page.locator(".pstats b").first()).not.toHaveText("—");
+  await expect(page.locator(".pstats b").first()).toHaveText(/\d/);
   await expect(page.locator(".act").first()).toBeVisible();
 });
 
@@ -46,5 +46,5 @@ test("rankings, profile and fund pages load", async ({ page }) => {
   await expect(page.locator(".profile h2")).toBeVisible();
   await page.goto("/funds");
   await page.locator(".fcard").first().click();
-  await expect(page.getByText("Hyperliquid vault")).toBeVisible();
+  await expect(page.getByText("Hyperliquid vault", { exact: true })).toBeVisible();
 });

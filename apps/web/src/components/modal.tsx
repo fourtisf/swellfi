@@ -9,6 +9,7 @@ import { useUi, type ModalName } from "@/lib/ui-store";
  */
 export function Modal({ name, className = "", children }: { name: ModalName; className?: string; children: ReactNode }) {
   const on = useUi((s) => s.modal === name);
+  const close = useUi((s) => s.closeModal);
   const [mounted, setMounted] = useState(on);
   useEffect(() => {
     if (on) return setMounted(true);
@@ -17,7 +18,14 @@ export function Modal({ name, className = "", children }: { name: ModalName; cla
   }, [on]);
   return (
     <div className={`modal ${className}${on ? " on" : ""}`} role="dialog" aria-modal="true" aria-hidden={!on}>
-      {(on || mounted) && children}
+      {(on || mounted) && (
+        <>
+          <button className="mclose" aria-label="Close" onClick={close}>
+            ✕
+          </button>
+          {children}
+        </>
+      )}
     </div>
   );
 }

@@ -125,3 +125,25 @@ export function Empty({ icon, title, children, style }: { icon?: ReactNode; titl
     </div>
   );
 }
+
+/** Shimmer placeholder while data loads. */
+export function Skel({ w = "md" }: { w?: "md" | "lg" | "xl" }) {
+  return <span className={`sk${w === "md" ? "" : ` w-${w}`}`} aria-hidden="true" />;
+}
+
+export function SkelRows({ n = 5 }: { n?: number }) {
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => (
+        <div className="skrow" key={i}>
+          <span className="sk c" />
+          <span className="grow">
+            <span className="sk w-lg" />
+            <span className="sk" />
+          </span>
+          <span className="sk w-lg" />
+        </div>
+      ))}
+    </>
+  );
+}
