@@ -65,11 +65,16 @@ function page(next: string, error: string): string {
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
 body{display:grid;place-items:center;padding:24px 16px;background:#070B14;color:#EAF1FA;font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
-/* The trading terminal behind the card: a screenshot (public/access/), so no app code or live
-   data loads before unlocking. */
+/* The trading terminal behind the card, from public/access/ so no app code or live data loads
+   before unlocking: a muted loop recording on desktop, a slowly drifting screenshot on phones.
+   The still image (the video's first frame on desktop) shows until the video plays. */
 body::before{content:"";position:fixed;inset:0;background:url(/access/terminal-desktop.jpg) center top/cover no-repeat}
+#bgv{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;opacity:0;transition:opacity .8s ease}
+#bgv.on{opacity:1}
 body::after{content:"";position:fixed;inset:0;background:radial-gradient(620px 440px at 50% 50%,rgba(7,11,20,.72),rgba(7,11,20,.5) 80%)}
-@media (max-width:640px){body::before{background-image:url(/access/terminal-mobile.jpg)}}
+@keyframes drift{from{transform:scale(1.02) translate3d(0,0,0)}to{transform:scale(1.12) translate3d(-2%,-3%,0)}}
+@media (max-width:640px){body::before{background-image:url(/access/terminal-mobile.jpg);animation:drift 26s ease-in-out infinite alternate}#bgv{display:none}}
+@media (prefers-reduced-motion:reduce){body::before{animation:none}#bgv{display:none}}
 .card{position:relative;z-index:1;width:100%;max-width:400px;padding:32px 28px;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 120px),rgba(13,19,32,.84);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);box-shadow:0 30px 80px -20px rgba(0,0,0,.85)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:-.01em;margin-bottom:28px}
 .brand img{width:34px;height:34px}
@@ -85,6 +90,7 @@ button:focus-visible{outline:2px solid #9AF1FF;outline-offset:2px}
 </style>
 </head>
 <body>
+<video id="bgv" muted playsinline loop autoplay preload="none" aria-hidden="true"></video>
 <main class="card">
   <div class="brand"><img src="/icon.svg" alt="">${brand}</div>
   <h1>Private preview</h1>
@@ -97,6 +103,19 @@ button:focus-visible{outline:2px solid #9AF1FF;outline-offset:2px}
     <button type="submit">Continue</button>
   </form>
 </main>
+<script>
+(function () {
+  var v = document.getElementById("bgv"), mq = window.matchMedia;
+  if (!v || (mq && (mq("(max-width: 640px)").matches || mq("(prefers-reduced-motion: reduce)").matches))) return;
+  v.muted = true;
+  v.addEventListener("playing", function () { v.classList.add("on"); });
+  // VP9 first (Chrome, Edge, Firefox, recent Safari), H.264 for older Safari.
+  v.innerHTML = '<source src="/access/terminal-desktop.webm" type="video/webm"><source src="/access/terminal-desktop.mp4" type="video/mp4">';
+  v.load();
+  var p = v.play();
+  if (p && p.catch) p.catch(function () {});
+})();
+</script>
 </body>
 </html>`;
 }
