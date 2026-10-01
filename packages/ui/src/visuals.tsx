@@ -1,43 +1,110 @@
-import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { gradFor } from "./tokens";
 
 const disp = (n: string) => (n.includes(":") ? n.slice(n.indexOf(":") + 1) : n);
 
-/** Coin logo from Hyperliquid's CDN with a gradient monogram fallback. */
+// ---- Coin logos ----
+// Resolution order (first that loads wins): bundled logo (instant, offline) → Hyperliquid's
+// coin CDN (covers every listed token) → monogram. HYPE prefers Hyperliquid's official mark.
+let bundled: ReadonlySet<string> = new Set();
+let bundledBase = "/logos";
+export function configureCoinLogos(opts: { bundled: ReadonlySet<string>; base?: string }) {
+  bundled = opts.bundled;
+  if (opts.base) bundledBase = opts.base;
+}
+
+const symbolOf = (name: string) => {
+  let s = disp(name).toUpperCase();
+  // Hyperliquid "k" prefixes (kPEPE = 1000 PEPE) share the base token's logo.
+  if (/^k[A-Z0-9]{2,}$/.test(disp(name))) s = s.slice(1);
+  return s;
+};
+
+const CDN_FIRST = new Set(["HYPE", "PURR"]);
+
+export function coinLogoSources(name: string): string[] {
+  const sym = symbolOf(name);
+  const local = bundled.has(sym) ? [`${bundledBase}/${encodeURIComponent(sym)}.svg`] : [];
+  const cdn = [`https://app.hyperliquid.xyz/coins/${encodeURIComponent(name)}.svg`];
+  return CDN_FIRST.has(sym) ? [...cdn, ...local] : [...local, ...cdn];
+}
+
+/** Coin / market logo with graceful fallbacks; a gradient monogram if nothing loads. */
 export function CoinIcon({ name, size = 26 }: { name: string; size?: number }) {
+  return <CoinIconInner key={name} name={name} size={size} />;
+}
+
+function CoinIconInner({ name, size }: { name: string; size: number }) {
   const [a, b] = gradFor(name);
-  const [failed, setFailed] = useState(false);
+  const sources = coinLogoSources(name);
+  const [idx, setIdx] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const src = sources[idx];
+  // A slow source shouldn't leave a monogram on screen: move on after 2.5 s.
+  useEffect(() => {
+    if (loaded || idx >= sources.length - 1) return;
+    const t = setTimeout(() => setIdx((i) => (i === idx ? i + 1 : i)), 2500);
+    return () => clearTimeout(t);
+  }, [idx, loaded, sources.length]);
   return (
     <span
-      className="ci"
-      style={{ width: size, height: size, fontSize: size * 0.38, "--c1": a, "--c2": b } as CSSProperties}
+      className={`ci${loaded ? " has-img" : ""}`}
+      style={{ width: size, height: size, fontSize: size * 0.36, "--c1": a, "--c2": b } as CSSProperties}
+      title={disp(name)}
     >
-      {disp(name).slice(0, 2)}
-      {!failed && (
+      {!loaded && disp(name).slice(0, disp(name).length <= 3 ? 3 : 2)}
+      {src && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={`https://app.hyperliquid.xyz/coins/${encodeURIComponent(name)}.svg`}
+          key={src}
+          src={src}
           alt=""
           loading="lazy"
-          onError={() => setFailed(true)}
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            setLoaded(false);
+            setIdx((i) => i + 1);
+          }}
+          style={loaded ? undefined : { opacity: 0 }}
         />
       )}
     </span>
   );
 }
 
+const MARBLE = ["#16C784", "#0E8F62", "#1C6FA8", "#5B45E0", "#2BB3C0", "#E07A5F", "#F2C14E", "#B8326A", "#7A4FD0", "#3FF0AE"];
+
+/** Generative "marble" avatar (deterministic per seed) unless an image is set. */
 export function Avatar({ seed, size = 34, ring, src }: { seed: string; size?: number; ring?: boolean; src?: string | null }) {
-  const [a, b] = gradFor(seed);
+  const id = useId().replace(/:/g, "");
+  const h = [...seed].reduce((a, c) => (a * 33 + c.charCodeAt(0)) >>> 0, 5381);
+  const pick = (n: number) => MARBLE[(h >>> (n * 3)) % MARBLE.length]!;
+  const r = (n: number, m: number) => ((h >>> n) % m) - m / 2;
   return (
-    <span
-      className={`av${ring ? " ring" : ""}`}
-      style={{ width: size, height: size, fontSize: size * 0.4, "--c1": a, "--c2": b, overflow: src ? "hidden" : undefined } as CSSProperties}
-    >
+    <span className={`av marble${ring ? " ring" : ""}`} style={{ width: size, height: size } as CSSProperties} aria-hidden="true">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
       ) : (
-        (seed[0] ?? "?").toUpperCase()
+        <svg viewBox="0 0 80 80" width={size} height={size}>
+          <defs>
+            <filter id={`b${id}`} x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="7" />
+            </filter>
+            <clipPath id={`c${id}`}>
+              <circle cx="40" cy="40" r="40" />
+            </clipPath>
+          </defs>
+          <g clipPath={`url(#c${id})`}>
+            <rect width="80" height="80" fill={pick(0)} />
+            <g filter={`url(#b${id})`}>
+              <path d={`M32 ${10 + r(3, 20)}c${18 + r(5, 10)} 0 ${30 + r(7, 12)} 14 ${30} 34s-14 30-34 30S-6 60-6 40 ${14} ${10 + r(3, 20)} 32 ${10 + r(3, 20)}z`} fill={pick(1)} transform={`rotate(${(h % 360)} 40 40)`} />
+              <circle cx={40 + r(9, 40)} cy={40 + r(11, 40)} r={16 + (h % 10)} fill={pick(2)} />
+              <circle cx={40 + r(13, 36)} cy={40 + r(15, 36)} r={10 + ((h >>> 4) % 8)} fill={pick(3)} opacity=".85" />
+            </g>
+          </g>
+        </svg>
       )}
     </span>
   );

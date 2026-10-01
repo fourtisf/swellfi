@@ -208,11 +208,8 @@ export function Header() {
         <nav className="nav" id="nav">
           {nav("/", "Portfolio", "home")}
           {nav("/trade", "Trade", "trade")}
+          {nav("/markets", "Markets", "chart")}
           {nav("/feed", "Feed", "feed")}
-          <button className="soon" title="Coming soon" aria-disabled="true">
-            <Icon name="search" size={16} />
-            Discovery
-          </button>
           {nav("/rankings", "Rankings", "rank")}
           {nav("/rewards", "Rewards", "gift")}
           <MoreMenu />
@@ -249,20 +246,38 @@ export function MobileNav() {
 
 export function Footer() {
   return (
-    <footer>
-      <div className="logo" style={{ fontSize: 17 }}>
-        {BRAND}
+    <footer className="foot">
+      <div className="foot-main">
+        <div className="foot-brand">
+          <Logo name={BRAND} size={28} />
+          <p>Trade perps on Hyperliquid. Follow the traders worth following.</p>
+          <span className="foot-net">
+            <span className="dot live" /> {HL.network === "testnet" ? "Hyperliquid testnet" : "Hyperliquid mainnet"}
+          </span>
+        </div>
+        <div className="foot-cols">
+          <div>
+            <b>Trade</b>
+            <Link href="/trade">Terminal</Link>
+            <Link href="/markets">Markets</Link>
+            <Link href="/funds">Funds</Link>
+          </div>
+          <div>
+            <b>Community</b>
+            <Link href="/feed">Feed</Link>
+            <Link href="/rankings">Rankings</Link>
+            <Link href="/rewards">Rewards</Link>
+          </div>
+          <div>
+            <b>Legal</b>
+            <Link href="/terms">Terms &amp; risks</Link>
+          </div>
+        </div>
       </div>
-      <nav>
-        <Link href="/trade">Trade</Link>
-        <Link href="/rankings">Rankings</Link>
-        <Link href="/funds">Funds</Link>
-        <Link href="/rewards">Rewards</Link>
-        <Link href="/terms">Terms &amp; risks</Link>
-      </nav>
-      <div style={{ maxWidth: "52ch" }}>
-        Perpetuals use leverage and can lose more than you expect. Past performance of any trader or fund does not predict future
-        results. {BRAND} is non-custodial: your funds stay in your own Hyperliquid account.
+      <div className="foot-legal">
+        Perpetuals use leverage and can lose more than you expect. Past performance of any trader or fund does not predict future results.
+        {" "}
+        {BRAND} is non-custodial: your funds stay in your own Hyperliquid account.
       </div>
     </footer>
   );

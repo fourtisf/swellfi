@@ -12,7 +12,6 @@ test("terminal streams book and switches markets via the picker", async ({ page 
   test.skip(info.project.name === "mobile", "picker covered on desktop");
   await page.goto("/trade");
   await expect(page.locator("#hPx")).toContainText("$");
-  await page.getByRole("button", { name: /Book/ }).click();
   await expect(page.locator(".brow.a").first()).toBeVisible();
   await page.getByRole("button", { name: "Change market" }).click();
   await page.locator(".picker input").fill("NVDA");

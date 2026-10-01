@@ -14,6 +14,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: "/", label: "Portfolio", icon: "home" },
   { href: "/trade", label: "Trade", icon: "trade" },
+  { href: "/markets", label: "Markets", icon: "chart" },
   { href: "/feed", label: "Feed", icon: "feed" },
   { href: "/rankings", label: "Rankings", icon: "rank" },
   { href: "/funds", label: "Funds", icon: "fund" },

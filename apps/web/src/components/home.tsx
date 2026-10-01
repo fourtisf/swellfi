@@ -15,6 +15,7 @@ import { useSession } from "@/lib/session";
 import { useHlAccount } from "@/lib/trading/account";
 import { openModal } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
+import { MarketHighlights, MarketsTable } from "./markets";
 import { ActivityRow, TraderCell } from "./social";
 
 type HomeKey = "vol" | "gain" | "loss" | "tradfi";
@@ -151,93 +152,6 @@ function LiveActivity() {
   );
 }
 
-function MarketsTable() {
-  const [k, setK] = useState<HomeKey>("vol");
-  const list = useHomeList(k).slice(0, 10);
-  const spark = useMarkets((s) => s.spark);
-  const status = useMarkets((s) => s.status);
-  const router = useRouter();
-  const names = list.map((m) => m.name).join(",");
-  useEffect(() => {
-    if (names) void loadSparks(names.split(","));
-  }, [names]);
-  const segs: [HomeKey, string][] = [
-    ["vol", "Most traded"],
-    ["gain", "Gainers"],
-    ["loss", "Losers"],
-    ["tradfi", "Stocks"],
-  ];
-  return (
-    <>
-      <div className="sec-title">
-        <div>
-          <h2>Markets</h2>
-          <p>Prices stream straight from Hyperliquid. Tap any market to trade it.</p>
-        </div>
-        <div className="seg">
-          {segs.map(([key, label]) => (
-            <button key={key} className={k === key ? "on" : ""} onClick={() => setK(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="glass scroll-x">
-        <table>
-          <thead>
-            <tr>
-              <th>Market</th>
-              <th>Price</th>
-              <th>24h</th>
-              <th className="hide-m">24h chart</th>
-              <th className="hide-m">Volume</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {list.length ? (
-              list.map((m) => (
-                <tr key={m.name} className="click" onClick={() => router.push(tradeHref(m.name))}>
-                  <td>
-                    <div className="who">
-                      <CoinIcon name={m.name} size={32} />
-                      <div>
-                        <span className="n">{displayName(m.name)}</span>
-                        <small>
-                          {m.kind === "tradfi" ? "Stock & commodity" : "Crypto"} · {m.maxLev}x
-                        </small>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>
-                    <LivePx coin={m.name} />
-                  </td>
-                  <td>
-                    <LiveChg coin={m.name} chip />
-                  </td>
-                  <td className="hide-m">{spark[m.name] ? <Sparkline data={spark[m.name]} width={120} height={34} fill={0.25} /> : <span className="dim">—</span>}</td>
-                  <td className="hide-m">{fUsd(m.vol)}</td>
-                  <td>
-                    <span className="btn btn-ghost" style={{ height: 32, padding: "0 14px", fontSize: 12.5 }}>
-                      Trade
-                    </span>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={6} style={{ padding: 0 }}>
-                  {status === "error" ? <div className="empty">Couldn&apos;t reach Hyperliquid. Retrying…</div> : <SkelRows n={6} />}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
 function Portfolio() {
   const s = useSession();
   if (s.status !== "ready") {
@@ -365,7 +279,17 @@ export function HomeView() {
       </div>
       <LiveActivity />
       <div className="wrap-1040">
-        <MarketsTable />
+        <div className="sec-title">
+          <div>
+            <h2>Markets</h2>
+            <p>Prices stream straight from Hyperliquid. Tap any market to trade it.</p>
+          </div>
+          <Link className="btn btn-ghost" href="/markets" style={{ height: 38 }}>
+            All markets <Icon name="arrow" size={14} />
+          </Link>
+        </div>
+        <MarketHighlights />
+        <MarketsTable limit={12} />
         <div className="duo" style={{ marginTop: 18 }}>
           <div className="glass">
             <div className="ph">

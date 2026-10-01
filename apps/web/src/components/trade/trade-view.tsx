@@ -17,7 +17,7 @@ import { useOrderForm } from "./order-store";
 import { OrderPanel } from "./order-panel";
 import { TradeSidebar } from "./sidebar";
 
-function MarketHeader({ coin, panel, bookOpen, onPanel }: { coin: string; panel: BookPanel; bookOpen: boolean; onPanel(p: BookPanel): void }) {
+function MarketHeader({ coin, bookOpen, onToggleBook, collapsed, onExpand }: { coin: string; bookOpen: boolean; onToggleBook(): void; collapsed: boolean; onExpand(): void }) {
   const m = useMarkets((s) => s.byName[coin])!;
   const px = useMarkets((s) => s.mids[coin]);
   useNow(1000);
@@ -27,6 +27,11 @@ function MarketHeader({ coin, panel, bookOpen, onPanel }: { coin: string; panel:
   }, [px, coin]);
   return (
     <div className="thead">
+      {collapsed && (
+        <button className="iconbtn expand" aria-label="Show watchlist and chat" title="Show watchlist and chat" onClick={onExpand}>
+          »
+        </button>
+      )}
       <button className="cpick" aria-label="Change market" onClick={() => openModal("picker")}>
         <CoinIcon name={coin} size={28} />
         <b>{displayName(coin)}</b>
@@ -56,19 +61,9 @@ function MarketHeader({ coin, panel, bookOpen, onPanel }: { coin: string; panel:
         </span>
       </div>
       <div className="spacer" />
-      <div className="ptog">
-        {(
-          [
-            ["book", "≡ Book"],
-            ["trades", "↗ Trades"],
-            ["depth", "▮ Depth"],
-          ] as [BookPanel, string][]
-        ).map(([k, label]) => (
-          <button key={k} className={bookOpen && panel === k ? "on" : ""} onClick={() => onPanel(k)}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <button className={`booktog${bookOpen ? " on" : ""}`} aria-pressed={bookOpen} onClick={onToggleBook} title={bookOpen ? "Hide order book" : "Show order book"}>
+        ≡ <span>Order book</span>
+      </button>
     </div>
   );
 }
@@ -80,7 +75,12 @@ export function TradeView({ coin }: { coin: string }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [panel, setPanel] = useState<BookPanel>("book");
-  const [bookOpen, setBookOpen] = useState(false);
+  const [bookOpen, setBookOpen] = useState(true);
+
+  // Give the chart room on laptop screens: the watchlist/chat sidebar starts collapsed below 1600px.
+  useEffect(() => {
+    if (window.innerWidth < 1600) setCollapsed(true);
+  }, []);
   const setSheet = useUi((u) => u.setSheet);
   const setForm = useOrderForm((s) => s.set);
   const acct = useHlAccount();
@@ -124,25 +124,11 @@ export function TradeView({ coin }: { coin: string }) {
     <section className="view on" id="v-trade">
       <div className={`term${collapsed ? " collapsed" : ""}`} id="term">
         <TradeSidebar coin={coin} onCollapse={() => setCollapsed(true)} />
-        <button className="iconbtn expand" aria-label="Expand sidebar" hidden={!collapsed} onClick={() => setCollapsed(false)}>
-          »
-        </button>
         <div className="tmain">
-          <MarketHeader
-            coin={coin}
-            panel={panel}
-            bookOpen={bookOpen}
-            onPanel={(p) => {
-              if (bookOpen && panel === p) setBookOpen(false);
-              else {
-                setPanel(p);
-                setBookOpen(true);
-              }
-            }}
-          />
+          <MarketHeader coin={coin} bookOpen={bookOpen} onToggleBook={() => setBookOpen((o) => !o)} collapsed={collapsed} onExpand={() => setCollapsed(false)} />
           <div className={`tbody${bookOpen ? "" : " nobook"}`}>
             <PriceChart coin={coin} displayName={displayName(coin)} lines={lines} />
-            <BookColumn coin={coin} display={displayName(coin)} panel={panel} open={bookOpen} />
+            <BookColumn coin={coin} display={displayName(coin)} panel={panel} onPanel={setPanel} open={bookOpen} />
           </div>
           <BottomTabs />
         </div>

@@ -9,7 +9,11 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
-    "mock:hl": "node e2e/mock-hl.mjs"
+    "mock:hl": "node e2e/mock-hl.mjs",
+    "logos": "node scripts/build-logos.mjs",
+    "predev": "node scripts/build-logos.mjs",
+    "prebuild": "node scripts/build-logos.mjs",
+    "pretypecheck": "node scripts/build-logos.mjs"
   },
   "dependencies": {
     "@privy-io/react-auth": "3.46.0",
@@ -33,6 +37,9 @@
     "eslint-config-next": "14.2.35",
     "typescript": "5.9.3",
     "ws": "^8.18.3",
-    "@nktkas/hyperliquid": "0.33.3"
+    "@nktkas/hyperliquid": "0.33.3",
+    "@web3icons/core": "4.0.57",
+    "cryptocurrency-icons": "0.18.1",
+    "simple-icons": "16.33.0"
   }
 }

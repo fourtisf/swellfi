@@ -25,8 +25,8 @@ const FEES = { taker: 0.00045, maker: 0.00015 };
 
 // ---------------- Markets ----------------
 // [name, px, maxLeverage, szDecimals]
-const MAIN = [["BTC", 96420, 40, 5], ["ETH", 3480, 25, 4], ["SOL", 212, 20, 2], ["HYPE", 41.2, 10, 2], ["XRP", 2.41, 20, 0], ["DOGE", 0.271, 10, 0], ["PUMP", 0.0061, 5, 0], ["SUI", 4.12, 10, 1], ["AVAX", 38.6, 10, 2], ["LINK", 22.4, 10, 1], ["BNB", 690, 10, 3], ["ENA", 0.82, 10, 0]];
-const XYZ = [["xyz:NVDA", 182.4, 10, 3], ["xyz:TSLA", 418.2, 10, 3], ["xyz:SP500", 6620, 20, 3], ["xyz:GOLD", 3840, 20, 3], ["xyz:CL", 64.2, 10, 2]];
+const MAIN = [["BTC", 96420, 40, 5], ["ETH", 3480, 25, 4], ["SOL", 212, 20, 2], ["HYPE", 41.2, 10, 2], ["XRP", 2.41, 20, 0], ["DOGE", 0.271, 10, 0], ["PUMP", 0.0061, 5, 0], ["SUI", 4.12, 10, 1], ["AVAX", 38.6, 10, 2], ["LINK", 22.4, 10, 1], ["BNB", 690, 10, 3], ["ENA", 0.82, 10, 0], ["kPEPE", 0.0121, 10, 0], ["FARTCOIN", 1.12, 10, 1], ["ARB", 0.71, 10, 1], ["OP", 1.62, 10, 1], ["TIA", 4.4, 10, 1], ["LTC", 102, 10, 2], ["AAVE", 268, 10, 2], ["UNI", 9.8, 10, 1], ["TRUMP", 14.2, 10, 1], ["PENGU", 0.031, 5, 0]];
+const XYZ = [["xyz:NVDA", 182.4, 10, 3], ["xyz:TSLA", 418.2, 10, 3], ["xyz:SP500", 6620, 20, 3], ["xyz:GOLD", 3840, 20, 3], ["xyz:CL", 64.2, 10, 2], ["xyz:XYZ100", 24800, 20, 3], ["xyz:AAPL", 238.1, 10, 3], ["xyz:MSFT", 512.4, 10, 3], ["xyz:GOOGL", 245.3, 10, 3], ["xyz:AMZN", 226.7, 10, 3], ["xyz:META", 748.2, 10, 3], ["xyz:COIN", 342.5, 10, 3], ["xyz:SILVER", 46.8, 20, 2], ["xyz:NATGAS", 3.12, 10, 2], ["xyz:EUR", 1.172, 20, 1]];
 const ASSET = new Map(); // assetId -> {name, dex, szDecimals, maxLev}
 MAIN.forEach(([n, , l, d], i) => ASSET.set(i, { name: n, dex: "", szDecimals: d, maxLev: l }));
 XYZ.forEach(([n, , l, d], i) => ASSET.set(110000 + i, { name: n, dex: "xyz", szDecimals: d, maxLev: l }));

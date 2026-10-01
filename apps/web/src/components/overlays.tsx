@@ -14,6 +14,7 @@ import { discoverWallets } from "@/lib/injected";
 import { NAV, traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
 import { openModal, toast, useUi } from "@/lib/ui-store";
+import { MarketSelector } from "./markets";
 import { Modal } from "./modal";
 import { MoneyModals } from "./trade/money-modals";
 
@@ -164,57 +165,20 @@ function InviteModal() {
 }
 
 function PickerModal() {
-  const markets = useMarkets((s) => s.markets);
-  const mids = useMarkets((s) => s.mids);
-  const watch = useWatchlist();
   const close = useUi((u) => u.closeModal);
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const list = markets.filter((m) => displayName(m.name).toLowerCase().includes(q.toLowerCase())).slice(0, 100);
+  const pathname = usePathname();
+  const current = pathname.startsWith("/trade/") ? decodeURIComponent(pathname.slice(7)) : "BTC";
   return (
-    <Modal name="picker" className="picker glass">
-      <h3>Choose a market</h3>
-      <div className="sbox" style={{ marginTop: 12 }}>
-        <Icon name="search" size={16} />
-        <input className="input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-      </div>
-      <div className="list">
-        {list.length ? (
-          list.map((m) => {
-            const c = change24h(m, mids[m.name]);
-            return (
-              <div className="prow" key={m.name}>
-                <button
-                  className="pk"
-                  onClick={() => {
-                    close();
-                    router.push(tradeHref(m.name));
-                  }}
-                >
-                  <CoinIcon name={m.name} size={26} />
-                  <span style={{ flex: 1 }}>
-                    <b>{displayName(m.name)}</b> <span className="pill n">{m.maxLev}x</span>
-                    <small className="dim" style={{ display: "block" }}>
-                      {fUsd(m.vol)} vol
-                    </small>
-                  </span>
-                  <span style={{ textAlign: "right" }}>
-                    <span>{fPx(mids[m.name])}</span>
-                    <small className={sgn(c)} style={{ display: "block" }}>
-                      {fPct(c)}
-                    </small>
-                  </span>
-                </button>
-                <button className={`star${watch.has(m.name) ? " on" : ""}`} aria-label="Watchlist" aria-pressed={watch.has(m.name)} onClick={() => watch.toggle(m.name)}>
-                  ★
-                </button>
-              </div>
-            );
-          })
-        ) : (
-          <div className="empty">No markets match.</div>
-        )}
-      </div>
+    <Modal name="picker" className="picker wide glass">
+      <h3>Select market</h3>
+      <MarketSelector
+        current={current}
+        onPick={(coin) => {
+          close();
+          router.push(tradeHref(coin));
+        }}
+      />
     </Modal>
   );
 }

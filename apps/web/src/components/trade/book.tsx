@@ -104,7 +104,7 @@ function Depth({ book, coin }: { book: L2Book["levels"]; coin: string }) {
   return <canvas id="depth" ref={cv} />;
 }
 
-export function BookColumn({ coin, display, panel, open }: { coin: string; display: string; panel: BookPanel; open: boolean }) {
+export function BookColumn({ coin, display, panel, onPanel, open }: { coin: string; display: string; panel: BookPanel; onPanel(p: BookPanel): void; open: boolean }) {
   const { book, trades } = useCoinFeed(coin);
   const small = useMediaQuery("(max-width: 900px)");
   const setForm = useOrderForm((s) => s.set);
@@ -182,6 +182,19 @@ export function BookColumn({ coin, display, panel, open }: { coin: string; displ
   }
   return (
     <div className="bookcol" hidden={!open}>
+      <div className="book-tabs" role="tablist">
+        {(
+          [
+            ["book", "Order book"],
+            ["trades", "Trades"],
+            ["depth", "Depth"],
+          ] as [BookPanel, string][]
+        ).map(([k, label]) => (
+          <button key={k} role="tab" aria-selected={panel === k} className={panel === k ? "on" : ""} onClick={() => onPanel(k)}>
+            {label}
+          </button>
+        ))}
+      </div>
       <div id="bookBody" className="book">
         {body}
       </div>

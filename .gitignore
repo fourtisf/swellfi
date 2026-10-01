@@ -25,3 +25,7 @@ apps/web/e2e/__screens__/
 
 # local redis snapshot
 dump.rdb
+
+# generated coin logos (apps/web/scripts/build-logos.mjs)
+apps/web/public/logos/
+apps/web/src/generated/
