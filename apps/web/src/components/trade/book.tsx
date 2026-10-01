@@ -109,6 +109,8 @@ export function BookColumn({ coin, display, panel, onPanel, open }: { coin: stri
   const small = useMediaQuery("(max-width: 900px)");
   const setForm = useOrderForm((s) => s.set);
   const fallbackMid = useMarkets((s) => s.mids[coin]);
+  const szDec = useMarkets((s) => s.byName[coin]?.szDecimals);
+  const fSz = (v: number) => (szDec != null ? v.toFixed(szDec) : v.toFixed(v < 10 ? 3 : 1));
 
   let body: ReactNode;
   if (panel === "trades") {
@@ -150,24 +152,26 @@ export function BookColumn({ coin, display, panel, onPanel, open }: { coin: stri
       <div className={`brow ${s}`} key={`${s}${l.px}`} style={{ cursor: "pointer" }} onClick={() => setForm({ otype: "limit", px: pxInput(l.px) })}>
         <i style={{ width: `${((l.cum / mx) * 100).toFixed(1)}%` }} />
         <span className={s === "a" ? "dn" : "up"}>{fPx(l.px)}</span>
-        <span>{l.sz.toFixed(l.sz < 10 ? 3 : 1)}</span>
-        <span className="mut">{l.cum.toFixed(l.cum < 10 ? 3 : 1)}</span>
+        <span>{fSz(l.sz)}</span>
+        <span className="mut">{fSz(l.cum)}</span>
       </div>
     );
+    // Asks and bids each get half of the remaining height, so the spread stays in view and
+    // short screens drop the levels furthest from the mid instead of the whole bid side.
     body = (
-      <>
+      <div className="obook">
         <div className="brow hdr">
           <span>Price</span>
           <span>Size ({display})</span>
           <span>Total</span>
         </div>
-        {[...a].reverse().map((l) => row(l, "a"))}
+        <div className="bside a">{[...a].reverse().map((l) => row(l, "a"))}</div>
         <div className="spread">
           <b>{fPx(mid)}</b>
           <span>Spread {mid ? ((sp / mid) * 100).toFixed(3) : "0.000"}%</span>
         </div>
-        {b.map((l) => row(l, "b"))}
-        <div style={{ padding: "10px 16px" }}>
+        <div className="bside">{b.map((l) => row(l, "b"))}</div>
+        <div className="bratio">
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 6 }}>
             <span className="up">B {bp.toFixed(0)}%</span>
             <span className="dn">{(100 - bp).toFixed(0)}% S</span>
@@ -177,7 +181,7 @@ export function BookColumn({ coin, display, panel, onPanel, open }: { coin: stri
             <i style={{ flex: 1, background: "var(--short)" }} />
           </div>
         </div>
-      </>
+      </div>
     );
   }
   return (

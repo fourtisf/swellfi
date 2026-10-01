@@ -561,7 +561,13 @@ body.is-trade footer{display:none}
 .ctool .ohlc{white-space:nowrap}
 .term .chart-wrap{flex:1;height:auto;min-height:260px}
 .bookcol{border-left:1px solid var(--stroke);overflow:hidden;display:flex;flex-direction:column}
-#bookBody{flex:1;overflow:hidden}
+#bookBody{flex:1;overflow:hidden;min-height:0}
+.obook{display:flex;flex-direction:column;height:100%}
+.obook>*{flex:none}
+.obook>.bside{flex:1 1 0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.obook>.bside>*{flex:none}
+.obook>.bside.a{justify-content:flex-end}
+.bratio{padding:10px 16px}
 #depth{width:100%;height:100%;display:block}
 .tbottom{height:260px;border-top:1px solid var(--stroke);display:flex;flex-direction:column;min-height:0}
 .btabs{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 14px;border-bottom:1px solid var(--stroke)}
@@ -616,7 +622,7 @@ body.is-trade footer{display:none}
 .star{font-size:17px;color:var(--dim);padding:6px 10px}.star.on{color:#F5B53D}
 @media (max-width:1720px){.thead .hide-md{display:none}}
 @media (max-width:1200px){.term{grid-template-columns:0 minmax(0,1fr) 340px}.tside,#collapse{display:none}.tbody{grid-template-columns:minmax(0,1fr) 240px}}
-@media (max-width:900px){.term{display:flex;flex-direction:column;height:auto}.tmain{order:1}.tord{order:2;border-left:0;border-top:1px solid var(--stroke)}.tbody{grid-template-columns:1fr;grid-template-rows:340px auto}.bookcol{border-left:0;border-top:1px solid var(--stroke);max-height:420px}.tbottom{height:auto;min-height:220px}.expand{display:none}body.is-trade main{padding-bottom:90px}}
+@media (max-width:900px){.term{display:flex;flex-direction:column;height:auto}.tmain{order:1}.tord{order:2;border-left:0;border-top:1px solid var(--stroke)}.tbody{grid-template-columns:1fr;grid-template-rows:340px auto}.bookcol{border-left:0;border-top:1px solid var(--stroke);height:420px}.tbottom{height:auto;min-height:220px}.expand{display:none}body.is-trade main{padding-bottom:90px}}
 
 /* =========== Rayze fidelity pass =========== */
 :root{--bg:#080D17;--panel:#13191B;--stroke:rgba(255,255,255,.075);--text:#E9EDEE;--muted:#8C9598}
