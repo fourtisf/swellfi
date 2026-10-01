@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { change24h, displayName } from "@tideline/hl";
-import { Avatar, CoinIcon, fPct, fPx, fUsd, Icon, sgn, type IconName } from "@tideline/ui";
+import { change24h, displayName } from "@swellfi/hl";
+import { Avatar, CoinIcon, fPct, fPx, fUsd, Icon, sgn, type IconName } from "@swellfi/ui";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";

@@ -1,7 +1,7 @@
 "use client";
 
-import { displayName, estimateOrder, HL_FEES, MIN_ORDER_USD, type Market } from "@tideline/hl";
-import { fPx, fUsd, pxInput, sgn, Skel } from "@tideline/ui";
+import { displayName, estimateOrder, HL_FEES, MIN_ORDER_USD, type Market } from "@swellfi/hl";
+import { fPx, fUsd, pxInput, sgn, Skel } from "@swellfi/ui";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { BUILDER_RATE, HL } from "@/lib/env";
 import { useMarkets } from "@/lib/market";

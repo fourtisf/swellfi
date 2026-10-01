@@ -9,7 +9,7 @@ import {
   userInfo,
   type AccountPosition,
   type ClearinghouseLike,
-} from "@tideline/hl";
+} from "@swellfi/hl";
 import { useEffect, useMemo } from "react";
 import { HL } from "../env";
 import { getSocket } from "../market";
@@ -115,7 +115,7 @@ export function useHlAccount() {
   const openOrders = useMemo(() => orders.flatMap((q) => q.data ?? []).sort((a, b) => b.timestamp - a.timestamp), [orders]);
 
   const now = Date.now();
-  const agent = (agents.data ?? []).find((a) => a.name.split(" ")[0] === "tideline" && (a.validUntil == null || a.validUntil > now)) ?? null;
+  const agent = (agents.data ?? []).find((a) => a.name.split(" ")[0] === "swellfi" && (a.validUntil == null || a.validUntil > now)) ?? null;
   const builderApproved = HL.builder.address ? (builderFee.data ?? 0) >= HL.builder.feeTenthsBps : false;
 
   return {

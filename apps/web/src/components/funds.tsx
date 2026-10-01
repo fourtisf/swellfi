@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Avatar, Empty, fPct, fUsd, Icon, Risk, sgn, Sparkline } from "@tideline/ui";
+import { Avatar, Empty, fPct, fUsd, Icon, Risk, sgn, Sparkline } from "@swellfi/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

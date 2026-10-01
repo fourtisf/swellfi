@@ -1,6 +1,6 @@
 /* Ported verbatim from docs/tideline-prototype.html (the UI source of truth).
    Later layers override earlier ones exactly as in the prototype — keep the order.
-   Tideline-specific additions for the production app live at the end of the file. */
+   Swellfi-specific additions for the production app live at the end of the file. */
 :root{
   --bg:#060F17;--ink:#0A1822;--ink2:#0D1E2A;
   --glass:rgba(16,36,50,.58);--glass2:rgba(24,48,66,.72);
@@ -674,7 +674,7 @@ body.is-trade footer{display:none}
   body.is-trade main{padding-bottom:160px}
 }
 
-/* =========== Tideline production additions =========== */
+/* =========== Swellfi production additions =========== */
 :root{--display:var(--font-inter),'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--body:var(--font-inter),'Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
 a{color:inherit;text-decoration:none}
 .nav a,.mnav a{display:flex;align-items:center;gap:7px}

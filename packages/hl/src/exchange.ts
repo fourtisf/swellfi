@@ -4,7 +4,7 @@ import type { HlConfig, HlNetwork } from "./config";
 import { tenthsBpsToPercentString } from "./config";
 
 /** Agent name registered on Hyperliquid. The `valid_until` suffix is excluded from the 16-char limit. */
-export const AGENT_NAME = "tideline";
+export const AGENT_NAME = "swellfi";
 /** Agents expire after this; Hyperliquid allows up to 180 days. */
 export const AGENT_TTL_MS = 90 * 864e5;
 

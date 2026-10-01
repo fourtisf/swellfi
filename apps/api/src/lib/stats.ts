@@ -1,4 +1,4 @@
-import { Prisma } from "@tideline/db";
+import { Prisma } from "@swellfi/db";
 
 type Decimal = Prisma.Decimal;
 const Dec = Prisma.Decimal;

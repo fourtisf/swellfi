@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, "..");
 module.exports = {
   apps: [
     {
-      name: "tideline-api",
+      name: "swellfi-api",
       cwd: path.join(root, "apps/api"),
       script: "dist/index.js",
       node_args: `--env-file=${path.join(root, ".env")} --enable-source-maps`,
@@ -22,7 +22,7 @@ module.exports = {
       time: true,
     },
     {
-      name: "tideline-web",
+      name: "swellfi-web",
       cwd: path.join(root, "apps/web"),
       script: "node_modules/next/dist/bin/next",
       args: `start -p ${process.env.WEB_PORT || 3000} -H 127.0.0.1`,

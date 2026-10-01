@@ -1,7 +1,7 @@
 "use client";
 
-import { fromUsdcUnits, MIN_DEPOSIT_USDC, validateDeposit, validateWithdraw, WITHDRAW_FEE_USDC } from "@tideline/hl";
-import { fUsd } from "@tideline/ui";
+import { fromUsdcUnits, MIN_DEPOSIT_USDC, validateDeposit, validateWithdraw, WITHDRAW_FEE_USDC } from "@swellfi/hl";
+import { fUsd } from "@swellfi/ui";
 import { useEffect, useState } from "react";
 import { BRAND, HL } from "@/lib/env";
 import { useHlAccount } from "@/lib/trading/account";

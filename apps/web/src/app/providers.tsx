@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { configureCoinLogos } from "@tideline/ui";
+import { configureCoinLogos } from "@swellfi/ui";
 import { BUNDLED_LOGOS } from "@/generated/logos";
 import { bootMarkets } from "@/lib/market";
 import { SessionProvider } from "@/lib/session";

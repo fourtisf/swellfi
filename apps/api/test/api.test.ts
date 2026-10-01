@@ -34,7 +34,7 @@ beforeAll(async () => {
   t.auth.wallets["alice"] = [ALICE];
   t.auth.wallets["bob"] = [BOB];
   t.auth.wallets["admin"] = [ADMIN];
-  await t.prisma.inviteCode.create({ data: { code: "TIDE-TEST", maxUses: 2 } });
+  await t.prisma.inviteCode.create({ data: { code: "SWELL-TEST", maxUses: 2 } });
 });
 
 afterAll(async () => {
@@ -57,15 +57,15 @@ describe("auth + invite gating", () => {
   it("requires an invite, accepted terms and a linked wallet", async () => {
     const post = (body: object, who = "alice") => t.app.inject({ method: "POST", url: "/api/invite/redeem", headers: bearer(who), payload: body });
     expect((await post({ address: ALICE, acceptTerms: true })).json().error).toBe("INVITE_REQUIRED");
-    expect((await post({ code: "TIDE-TEST", address: ALICE, acceptTerms: false })).statusCode).toBe(400);
-    expect((await post({ code: "TIDE-TEST", address: BOB, acceptTerms: true })).json().error).toBe("WALLET_NOT_LINKED");
+    expect((await post({ code: "SWELL-TEST", address: ALICE, acceptTerms: false })).statusCode).toBe(400);
+    expect((await post({ code: "SWELL-TEST", address: BOB, acceptTerms: true })).json().error).toBe("WALLET_NOT_LINKED");
     expect((await post({ code: "NOPE-1234", address: ALICE, acceptTerms: true })).json().error).toBe("INVALID_INVITE");
 
-    const ok = await post({ code: "tide-test", address: ALICE.toUpperCase().replace("0X", "0x"), acceptTerms: true });
+    const ok = await post({ code: "swell-test", address: ALICE.toUpperCase().replace("0X", "0x"), acceptTerms: true });
     expect(ok.statusCode).toBe(200);
     expect(ok.json()).toMatchObject({ created: true, user: { address: ALICE, handle: "trader_111111" } });
     // idempotent
-    expect((await post({ code: "TIDE-TEST", address: ALICE, acceptTerms: true })).json().created).toBe(false);
+    expect((await post({ code: "SWELL-TEST", address: ALICE, acceptTerms: true })).json().created).toBe(false);
 
     const me = await t.app.inject({ url: "/api/me", headers: bearer("alice") });
     expect(me.statusCode).toBe(200);
@@ -75,10 +75,10 @@ describe("auth + invite gating", () => {
 
   it("stops at maxUses", async () => {
     const post = (who: string, address: string) =>
-      t.app.inject({ method: "POST", url: "/api/invite/redeem", headers: bearer(who), payload: { code: "TIDE-TEST", address, acceptTerms: true } });
+      t.app.inject({ method: "POST", url: "/api/invite/redeem", headers: bearer(who), payload: { code: "SWELL-TEST", address, acceptTerms: true } });
     expect((await post("bob", BOB)).statusCode).toBe(200);
     expect((await post("admin", ADMIN)).json().error).toBe("INVALID_INVITE");
-    const code = await t.prisma.inviteCode.findUnique({ where: { code: "TIDE-TEST" } });
+    const code = await t.prisma.inviteCode.findUnique({ where: { code: "SWELL-TEST" } });
     expect(code?.uses).toBe(2);
   });
 });
@@ -111,12 +111,12 @@ describe("waitlist + admin", () => {
     expect((await t.app.inject({ url: "/api/admin/waitlist", headers: bearer("alice") })).statusCode).toBe(403);
 
     // register the admin with a fresh code, then approve
-    await t.prisma.inviteCode.create({ data: { code: "TIDE-ADMIN" } });
-    await t.app.inject({ method: "POST", url: "/api/invite/redeem", headers: bearer("admin"), payload: { code: "TIDE-ADMIN", address: ADMIN, acceptTerms: true } });
+    await t.prisma.inviteCode.create({ data: { code: "SWELL-ADMIN" } });
+    await t.app.inject({ method: "POST", url: "/api/invite/redeem", headers: bearer("admin"), payload: { code: "SWELL-ADMIN", address: ADMIN, acceptTerms: true } });
     const list = await t.app.inject({ url: "/api/admin/waitlist", headers: bearer("admin") });
     expect(list.json().entries).toHaveLength(1);
     const ok = await t.app.inject({ method: "POST", url: `/api/admin/waitlist/${entry!.id}/approve`, headers: bearer("admin") });
-    expect(ok.json().entry).toMatchObject({ status: "approved", inviteCode: expect.stringMatching(/^TIDE-[A-Z2-9]{6}$/) });
+    expect(ok.json().entry).toMatchObject({ status: "approved", inviteCode: expect.stringMatching(/^SWELL-[A-Z2-9]{6}$/) });
   });
 });
 
@@ -187,11 +187,11 @@ describe("wallet sign-in", () => {
 
     const auth = { authorization: `Bearer ${token}` };
     expect((await t.app.inject({ url: "/api/me", headers: auth })).statusCode).toBe(404);
-    await t.prisma.inviteCode.create({ data: { code: "TIDE-WALLET" } });
-    const reg = await t.app.inject({ remoteAddress: "10.9.9.9", method: "POST", url: "/api/invite/redeem", headers: auth, payload: { code: "TIDE-WALLET", address: acc.address, acceptTerms: true } });
+    await t.prisma.inviteCode.create({ data: { code: "SWELL-WALLET" } });
+    const reg = await t.app.inject({ remoteAddress: "10.9.9.9", method: "POST", url: "/api/invite/redeem", headers: auth, payload: { code: "SWELL-WALLET", address: acc.address, acceptTerms: true } });
     expect(reg.json()).toMatchObject({ created: true, user: { address: acc.address.toLowerCase() } });
     // can't bind someone else's address
-    const steal = await t.app.inject({ remoteAddress: "10.9.9.9", method: "POST", url: "/api/invite/redeem", headers: auth, payload: { code: "TIDE-WALLET", address: other.address, acceptTerms: true } });
+    const steal = await t.app.inject({ remoteAddress: "10.9.9.9", method: "POST", url: "/api/invite/redeem", headers: auth, payload: { code: "SWELL-WALLET", address: other.address, acceptTerms: true } });
     expect(steal.json().created).toBe(false);
     expect((await t.app.inject({ url: "/api/me", headers: auth })).json().user.address).toBe(acc.address.toLowerCase());
     // tampered token

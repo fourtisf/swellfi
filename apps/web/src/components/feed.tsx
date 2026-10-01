@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { change24h, displayName } from "@tideline/hl";
-import { ago, Avatar, CoinIcon, Empty, fPct, fPx, Icon, Sparkline } from "@tideline/ui";
+import { change24h, displayName } from "@swellfi/hl";
+import { ago, Avatar, CoinIcon, Empty, fPct, fPx, Icon, Sparkline } from "@swellfi/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";

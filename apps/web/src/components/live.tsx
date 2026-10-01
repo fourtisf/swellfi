@@ -1,7 +1,7 @@
 "use client";
 
-import { change24h } from "@tideline/hl";
-import { fPct, fPx, sgn } from "@tideline/ui";
+import { change24h } from "@swellfi/hl";
+import { fPct, fPx, sgn } from "@swellfi/ui";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useMarkets } from "@/lib/market";
 

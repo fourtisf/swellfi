@@ -8,5 +8,5 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   // Workspace packages ship TypeScript source, so bundle them; keep real deps external.
-  noExternal: [/^@tideline\/(?!db$)/],
+  noExternal: [/^@swellfi\/(?!db$)/],
 });

@@ -1,7 +1,7 @@
 "use client";
 
-import { change24h, displayName } from "@tideline/hl";
-import { CoinIcon, Empty, fPct, fPx, fundingCountdown, fUsd, Icon, sgn } from "@tideline/ui";
+import { change24h, displayName } from "@swellfi/hl";
+import { CoinIcon, Empty, fPct, fPx, fundingCountdown, fUsd, Icon, sgn } from "@swellfi/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BRAND } from "@/lib/env";

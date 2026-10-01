@@ -1,4 +1,4 @@
-import type { Prisma } from "@tideline/db";
+import type { Prisma } from "@swellfi/db";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../app";

@@ -5,7 +5,7 @@ import type { AppContext } from "../app";
 import { forbidden, notFound } from "../lib/http";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-export const newInviteCode = () => `TIDE-${[...randomBytes(6)].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("")}`;
+export const newInviteCode = () => `SWELL-${[...randomBytes(6)].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("")}`;
 
 /** Admin endpoints (waitlist review, invite codes). Admins are listed in ADMIN_ADDRESSES. */
 export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {

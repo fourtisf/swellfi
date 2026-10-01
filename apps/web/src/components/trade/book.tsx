@@ -1,7 +1,7 @@
 "use client";
 
-import type { L2Book, RawTrade, Trade } from "@tideline/hl";
-import { fPx, pxInput } from "@tideline/ui";
+import type { L2Book, RawTrade, Trade } from "@swellfi/hl";
+import { fPx, pxInput } from "@swellfi/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMediaQuery } from "@/lib/hooks";
 import { getSocket, info, useMarkets } from "@/lib/market";

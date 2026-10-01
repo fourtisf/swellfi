@@ -29,7 +29,7 @@ importers:
       '@privy-io/node':
         specifier: 0.35.0
         version: 0.35.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(viem@2.57.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76))
-      '@tideline/db':
+      '@swellfi/db':
         specifier: workspace:*
         version: link:../../packages/db
       fastify:
@@ -45,7 +45,7 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
-      '@tideline/hl':
+      '@swellfi/hl':
         specifier: workspace:*
         version: link:../../packages/hl
       '@types/node':
@@ -84,10 +84,10 @@ importers:
       '@tanstack/react-query':
         specifier: 5.104.0
         version: 5.104.0(react@18.3.1)
-      '@tideline/hl':
+      '@swellfi/hl':
         specifier: workspace:*
         version: link:../../packages/hl
-      '@tideline/ui':
+      '@swellfi/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       lightweight-charts:

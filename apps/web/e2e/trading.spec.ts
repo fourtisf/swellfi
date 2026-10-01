@@ -5,7 +5,7 @@ import { installTestWallet } from "./wallet-fixture";
 // every signature like Hyperliquid does): connect wallet → invite → deposit → enable trading →
 // market buy with TP → TP triggers → withdraw. Desktop only.
 const MOCK = process.env.MOCK_HL_URL ?? "http://localhost:4100";
-const INVITE = process.env.E2E_INVITE_CODE ?? "TIDE-ALPHA";
+const INVITE = process.env.E2E_INVITE_CODE ?? "SWELL-ALPHA";
 const BUILDER = (process.env.NEXT_PUBLIC_BUILDER_ADDRESS ?? "0x000000000000000000000000000000000000b0b1").toLowerCase();
 
 const setPrice = (coin: string, px: number) => fetch(`${MOCK}/__mock/price`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ coin, px }) });
@@ -47,7 +47,7 @@ test("connect wallet → deposit → enable → trade with TP → withdraw", asy
   await expect(page.locator(".checklist")).toHaveCount(0, { timeout: 15_000 });
   let st = await mockState(wallet.address);
   expect(st.agents).toHaveLength(1);
-  expect(st.agents[0].name).toBe("tideline");
+  expect(st.agents[0].name).toBe("swellfi");
   expect(st.builders[BUILDER]).toBe(50);
 
   // 4. Market buy 20 USDC margin at 10x with a take profit at 101,000.

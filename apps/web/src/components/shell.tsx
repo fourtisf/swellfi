@@ -1,7 +1,7 @@
 "use client";
 
-import { displayName } from "@tideline/hl";
-import { Avatar, CoinIcon, fUsd, Icon, Logo, Skel, type IconName } from "@tideline/ui";
+import { displayName } from "@swellfi/hl";
+import { Avatar, CoinIcon, fUsd, Icon, Logo, Skel, type IconName } from "@swellfi/ui";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,8 +17,8 @@ const MORE: { icon: IconName; label: string; run: (r: ReturnType<typeof useRoute
   { icon: "fund", label: "Funds", run: (r) => r.push("/funds") },
   { icon: "chart", label: "Platform stats", run: (r) => r.push("/#stats") },
   { icon: "doc", label: "Documentation", run: () => toast("Docs open in a new tab once they're published") },
-  { icon: "globe", label: "Website", run: () => toast("tideline.trade") },
-  { icon: "x", label: "Follow on X", run: () => toast("x.com/tideline") },
+  { icon: "globe", label: "Website", run: () => toast("swellfi.xyz") },
+  { icon: "x", label: "Follow on X", run: () => toast("x.com/swellfi") },
 ];
 
 function MoreMenu() {

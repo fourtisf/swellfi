@@ -180,7 +180,7 @@ describe("signing through the SDK", () => {
     const actions = sent.map((s) => s.payload.action);
     expect(actions.map((a) => a.type)).toEqual(["approveAgent", "approveBuilderFee", "withdraw3"]);
     for (const a of actions) expect(a).toMatchObject({ hyperliquidChain: "Testnet", signatureChainId: "0x66eee" });
-    expect(actions[0].agentName).toBe(`tideline valid_until ${90 * 864e5}`);
+    expect(actions[0].agentName).toBe(`swellfi valid_until ${90 * 864e5}`);
     expect(actions[1].maxFeeRate).toBe("0.05%");
   });
 });

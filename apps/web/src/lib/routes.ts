@@ -1,4 +1,4 @@
-import type { IconName } from "@tideline/ui";
+import type { IconName } from "@swellfi/ui";
 
 /** URL for a market. HIP-3 names keep their dex prefix: /trade/xyz:NVDA */
 export const tradeHref = (coin: string) => `/trade/${encodeURIComponent(coin).replace(/%3A/gi, ":")}`;

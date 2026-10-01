@@ -1,6 +1,6 @@
 "use client";
 
-import type { OrderType, Side } from "@tideline/hl";
+import type { OrderType, Side } from "@swellfi/hl";
 import { create } from "zustand";
 
 /** Order-entry form state, shared so the order book can fill in a limit price. */

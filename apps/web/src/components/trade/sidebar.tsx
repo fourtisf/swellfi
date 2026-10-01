@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { displayName } from "@tideline/hl";
-import { Avatar, CoinIcon } from "@tideline/ui";
+import { displayName } from "@swellfi/hl";
+import { Avatar, CoinIcon } from "@swellfi/ui";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api, type ChatMsg } from "@/lib/api";

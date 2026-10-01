@@ -1,5 +1,5 @@
-import "@tideline/ui/styles.css";
-import "@tideline/ui/premium.css";
+import "@swellfi/ui/styles.css";
+import "@swellfi/ui/premium.css";
 import type { Metadata, Viewport } from "next";
 import { Inter, Inter_Tight } from "next/font/google";
 import type { ReactNode } from "react";

@@ -1,4 +1,4 @@
-import { prisma } from "@tideline/db";
+import { prisma } from "@swellfi/db";
 import { Redis } from "ioredis";
 import { buildApp } from "./app";
 import { loadEnv } from "./env";

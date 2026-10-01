@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Avatar, Empty, fPct, fUsd, Icon, sgn, Sparkline } from "@tideline/ui";
+import { Avatar, Empty, fPct, fUsd, Icon, sgn, Sparkline } from "@swellfi/ui";
 import Link from "next/link";
 import { api, ApiError, type Fund, type PublicUser, type Summary } from "@/lib/api";
 import { fundHref } from "@/lib/routes";

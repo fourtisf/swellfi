@@ -1,6 +1,6 @@
 "use client";
 
-import { createInfoClient, HlSocket, loadMarkets, type Market, type WsStatus } from "@tideline/hl";
+import { createInfoClient, HlSocket, loadMarkets, type Market, type WsStatus } from "@swellfi/hl";
 import { create } from "zustand";
 import { HL } from "./env";
 

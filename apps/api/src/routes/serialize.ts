@@ -1,4 +1,4 @@
-import type { User } from "@tideline/db";
+import type { User } from "@swellfi/db";
 
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 

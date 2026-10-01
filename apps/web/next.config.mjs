@@ -40,7 +40,7 @@ const csp = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ["@tideline/ui", "@tideline/hl"],
+  transpilePackages: ["@swellfi/ui", "@swellfi/hl"],
   webpack(config) {
     // Optional Privy peers for features we don't use (Farcaster mini apps, Solana memos,
     // smart wallets). They're imported lazily; stub them so the bundle resolves.

@@ -1,6 +1,6 @@
-# Tideline
+# Swellfi
 
-Non-custodial Hyperliquid perps trading with a social layer: rankings, feed, live activity and global chat.
+Non-custodial Hyperliquid perps trading with a social layer: rankings, feed, live activity and global chat. Production domain: **swellfi.xyz**.
 
 - **Spec:** `docs/HANDOFF.md`
 - **UI source of truth:** `docs/tideline-prototype.html`
@@ -38,14 +38,14 @@ pnpm dev                      # web on :3000, API on :4000 (Next proxies /api to
 
 Then open http://localhost:3000.
 
-- Log in with Privy, then redeem one of the `SEED_INVITE_CODES` (default `TIDE-ALPHA`).
+- Log in with Privy, then redeem one of the `SEED_INVITE_CODES` (default `SWELL-ALPHA`).
 - To make yourself an admin, add your wallet to `ADMIN_ADDRESSES`.
 
 ### Environment variables (`.env` at the repo root, read by every app)
 
 | Variable | Notes |
 |---|---|
-| `NEXT_PUBLIC_BRAND_NAME` | Placeholder brand (`Tideline`) |
+| `NEXT_PUBLIC_BRAND_NAME` | Brand name shown in the UI (`Swellfi`) |
 | `APP_URL` | Public origin. Used for CORS and referral links |
 | `SESSION_SECRET` | **Required in production** (≥ 32 chars). Signs wallet sign-in sessions |
 | `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET` | **Optional.** Without them, login is a browser wallet (MetaMask, Rabby, any EIP-6963 wallet) signing a one-time message that the API verifies. With them, Privy adds email login, embedded wallets and WalletConnect |
@@ -72,10 +72,10 @@ Then open http://localhost:3000.
 |---|---|
 | `pnpm dev` | Web and API with hot reload |
 | `pnpm build` | Prisma generate → API bundle (`apps/api/dist`) → Next production build |
-| `pnpm typecheck` / `pnpm lint` / `pnpm test` | Checks. API tests need Postgres and Redis; they use `tideline_test` and Redis db 15 |
+| `pnpm typecheck` / `pnpm lint` / `pnpm test` | Checks. API tests need Postgres and Redis; they use `swellfi_test` and Redis db 15 |
 | `pnpm db:migrate` / `pnpm db:deploy` | Create and apply migrations (dev) / apply only (prod) |
 | `pnpm db:seed` | Seed invite codes (and demo data if `SEED_DEMO=true`) |
-| `pnpm --filter @tideline/db exec tsx src/seed.ts --purge-demo` | Delete all demo rows |
+| `pnpm --filter @swellfi/db exec tsx src/seed.ts --purge-demo` | Delete all demo rows |
 | `pnpm mock:hl` | Local mock Hyperliquid API + WS on :4100, for offline dev and e2e |
 
 ### End-to-end tests (full trading lifecycle, offline)
@@ -101,9 +101,9 @@ Then open http://localhost:3000.
 pnpm mock:hl &
 NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://localhost:4100/ws \
 NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc NEXT_PUBLIC_BUILDER_ADDRESS=0x000000000000000000000000000000000000b0b1 \
-  pnpm --filter @tideline/web build
-pnpm --filter @tideline/api build && pnpm start &   # API + web
-pnpm --filter @tideline/web e2e                     # Playwright (set CHROMIUM_PATH if needed)
+  pnpm --filter @swellfi/web build
+pnpm --filter @swellfi/api build && pnpm start &   # API + web
+pnpm --filter @swellfi/web e2e                     # Playwright (set CHROMIUM_PATH if needed)
 ```
 
 The waitlist test hits the real 5/minute rate limit if the suite runs several times within a minute.
@@ -123,7 +123,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 | Step | Signed by | What happens |
 |---|---|---|
 | Deposit | Master wallet (Privy embedded or external) | USDC `transfer` on Arbitrum to Hyperliquid's Bridge2. The modal enforces the **5 USDC minimum**, shows the tx, then polls until Hyperliquid credits it |
-| Enable trading | Master wallet | `approveAgent`: a fresh agent key, generated in the browser, named `tideline`, valid 90 days. Then `approveBuilderFee` for the configured builder at `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` |
+| Enable trading | Master wallet | `approveAgent`: a fresh agent key, generated in the browser, named `swellfi`, valid 90 days. Then `approveBuilderFee` for the configured builder at `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` |
 | Orders, cancels, leverage, close | **Agent key** (no wallet popup) | `order` with the builder object on every order; `cancel`; `updateLeverage` (cross/isolated) before an order when it changed; close = reduce-only IOC. For HIP-3 markets, collateral moves to that dex with `agentSendAsset` (same user only) |
 | Withdraw | Master wallet | `withdraw3` to the user's own address. The 1 USDC Hyperliquid fee is shown before signing |
 
@@ -158,10 +158,10 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-ge
 sudo corepack enable && sudo npm i -g pm2
 # Postgres, Redis, Nginx, certbot
 sudo apt-get install -y postgresql redis-server nginx certbot python3-certbot-nginx
-sudo -u postgres psql -c "CREATE USER tideline WITH PASSWORD '<strong>';" -c "CREATE DATABASE tideline OWNER tideline;"
+sudo -u postgres psql -c "CREATE USER swellfi WITH PASSWORD '<strong>';" -c "CREATE DATABASE swellfi OWNER swellfi;"
 # App
-git clone <repo> /srv/tideline && cd /srv/tideline
-cp .env.example .env    # production values: SEED_DEMO=false, APP_URL=https://<domain>, Privy keys, builder
+git clone <repo> /srv/swellfi && cd /srv/swellfi
+cp .env.example .env    # production values: SEED_DEMO=false, APP_URL=https://swellfi.xyz, Privy keys, builder
 pnpm install --frozen-lockfile && pnpm db:generate && pnpm db:deploy && pnpm db:seed
 pnpm build
 pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup
@@ -169,7 +169,7 @@ pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup
 
 ### Nginx
 
-`deploy/nginx/tideline.conf` routes:
+`deploy/nginx/swellfi.conf` routes:
 
 - `/api/` → API on :4000
 - `/ws` → API, with WebSocket upgrade headers and a 1 h read timeout
@@ -178,10 +178,9 @@ pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup
 It also sets HSTS and caches `/_next/static`.
 
 ```bash
-sudo cp deploy/nginx/tideline.conf /etc/nginx/sites-available/tideline
-sudo sed -i 's/tideline.example.com/<your-domain>/g' /etc/nginx/sites-available/tideline
-sudo ln -s /etc/nginx/sites-available/tideline /etc/nginx/sites-enabled/
-sudo certbot --nginx -d <your-domain>     # issues the certificate referenced in the file
+sudo cp deploy/nginx/swellfi.conf /etc/nginx/sites-available/swellfi
+sudo ln -s /etc/nginx/sites-available/swellfi /etc/nginx/sites-enabled/
+sudo certbot --nginx -d swellfi.xyz -d www.swellfi.xyz   # issues the certificate referenced in the file
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -195,8 +194,8 @@ sudo nginx -t && sudo systemctl reload nginx
 
 `deploy/ecosystem.config.cjs` runs two processes:
 
-- `tideline-api`: `node --env-file=.env apps/api/dist/index.js`
-- `tideline-web`: `next start` on 127.0.0.1:3000
+- `swellfi-api`: `node --env-file=.env apps/api/dist/index.js`
+- `swellfi-web`: `next start` on 127.0.0.1:3000
 
 Useful commands: `pm2 logs`, `pm2 status`, `pm2 reload all`.
 

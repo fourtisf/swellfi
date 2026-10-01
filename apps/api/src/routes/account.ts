@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { Prisma, type PrismaClient } from "@tideline/db";
+import { Prisma, type PrismaClient } from "@swellfi/db";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../app";

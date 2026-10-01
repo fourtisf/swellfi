@@ -1,7 +1,7 @@
-import { resolveHlConfig, tenthsBpsToRate } from "@tideline/hl";
+import { resolveHlConfig, tenthsBpsToRate } from "@swellfi/hl";
 
 // NEXT_PUBLIC_* values must be referenced literally so Next inlines them at build time.
-export const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "Tideline";
+export const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "Swellfi";
 export const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
 
 export const HL = resolveHlConfig({

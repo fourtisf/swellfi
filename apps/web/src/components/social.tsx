@@ -1,7 +1,7 @@
 "use client";
 
-import { displayName } from "@tideline/hl";
-import { ago, Avatar, CoinIcon, fPct, fPx, fUsd, Icon, sgn } from "@tideline/ui";
+import { displayName } from "@swellfi/hl";
+import { ago, Avatar, CoinIcon, fPct, fPx, fUsd, Icon, sgn } from "@swellfi/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -36,7 +36,7 @@ export function FollowButton({ following, className = "follow", big }: { followi
   );
 }
 
-/** One row of the "Live on Tideline" tape (prototype actHtml). */
+/** One row of the "Live on Swellfi" tape (prototype actHtml). */
 export function ActivityRow({ a, now, fresh }: { a: ActivityItem; now: number; fresh?: boolean }) {
   const router = useRouter();
   const d = a.data;

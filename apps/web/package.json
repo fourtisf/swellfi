@@ -1,5 +1,5 @@
 {
-  "name": "@tideline/web",
+  "name": "@swellfi/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -18,8 +18,8 @@
   "dependencies": {
     "@privy-io/react-auth": "3.46.0",
     "@tanstack/react-query": "5.104.0",
-    "@tideline/hl": "workspace:*",
-    "@tideline/ui": "workspace:*",
+    "@swellfi/hl": "workspace:*",
+    "@swellfi/ui": "workspace:*",
     "lightweight-charts": "4.2.3",
     "next": "14.2.35",
     "react": "18.3.1",

@@ -1,7 +1,7 @@
 "use client";
 
-import { change24h, displayName, type Market } from "@tideline/hl";
-import { CoinIcon, fPct, fPx, fUsd, Icon, sgn, SkelRows, Sparkline } from "@tideline/ui";
+import { change24h, displayName, type Market } from "@swellfi/hl";
+import { CoinIcon, fPct, fPx, fUsd, Icon, sgn, SkelRows, Sparkline } from "@swellfi/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useWatchlist } from "@/lib/hooks";

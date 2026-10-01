@@ -1,7 +1,7 @@
 "use client";
 
-import { INTERVAL_MS, toCandle, type Candle, type CandleInterval } from "@tideline/hl";
-import { fPct, fPx, Icon, type IconName } from "@tideline/ui";
+import { INTERVAL_MS, toCandle, type Candle, type CandleInterval } from "@swellfi/hl";
+import { fPct, fPx, Icon, type IconName } from "@swellfi/ui";
 import {
   ColorType,
   createChart,

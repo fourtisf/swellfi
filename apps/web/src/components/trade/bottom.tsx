@@ -1,7 +1,7 @@
 "use client";
 
-import { displayName, type AccountPosition } from "@tideline/hl";
-import { ago, CoinIcon, Empty, fPct, fPx, fUsd, Icon, sgn, type IconName } from "@tideline/ui";
+import { displayName, type AccountPosition } from "@swellfi/hl";
+import { ago, CoinIcon, Empty, fPct, fPx, fUsd, Icon, sgn, type IconName } from "@swellfi/ui";
 import { useState, type ReactNode } from "react";
 import { useNow } from "@/lib/hooks";
 import { useSession } from "@/lib/session";

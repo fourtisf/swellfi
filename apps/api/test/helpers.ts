@@ -1,10 +1,10 @@
-import { Prisma, PrismaClient } from "@tideline/db";
+import { Prisma, PrismaClient } from "@swellfi/db";
 import { Redis } from "ioredis";
 import { buildApp } from "../src/app";
 import { loadEnv } from "../src/env";
 import type { AuthVerifier } from "../src/lib/auth";
 
-export const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgresql://tideline:tideline@localhost:5432/tideline_test?schema=public";
+export const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgresql://swellfi:swellfi@localhost:5432/swellfi_test?schema=public";
 
 /** Fake Privy: token "tok:<privyId>" is valid; wallets are registered per privyId. */
 export function fakeAuth(wallets: Record<string, string[]> = {}): AuthVerifier & { wallets: Record<string, string[]> } {

@@ -2,7 +2,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import websocket from "@fastify/websocket";
-import type { PrismaClient, User } from "@tideline/db";
+import type { PrismaClient, User } from "@swellfi/db";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Redis } from "ioredis";
 import type { Env } from "./env";

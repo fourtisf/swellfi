@@ -161,7 +161,7 @@ The indexer (Phase 3) must batch requests and back off.
 ## Phase 2 implementation decisions
 
 - **Named agent.**
-  - The agent is approved as `tideline valid_until <now+90d>`; the SDK excludes the suffix from the 16-char limit. `extraAgents` is used to check it's still live.
+  - The agent is approved as `swellfi valid_until <now+90d>`; the SDK excludes the suffix from the 16-char limit. `extraAgents` is used to check it's still live.
   - Each (re)approval uses a **new** key, so agent addresses are never reused.
   - Approving from a second device replaces the first device's agent.
 - **`signatureChainId`.** Pinned to the Arbitrum chain the master wallet is switched to: `0xa4b1` on mainnet, `0x66eee` on testnet. Privy is configured with `supportedChains: [arbitrum, arbitrumSepolia]`.
@@ -181,3 +181,16 @@ The indexer (Phase 3) must batch requests and back off.
 2. CCTP deposit and withdraw details.
 3. The exact Privy, WalletConnect and Coinbase host list for a strict CSP. **Enforce the CSP before mainnet**: the agent key is only as safe as the page is from XSS. The CSP ships **report-only** for now (`apps/web/next.config.mjs`).
 4. TradingView Advanced Charts licence. Until it's approved we use `lightweight-charts` 4.2, whose Apache-2.0 licence requires the TradingView attribution logo shown on the chart.
+
+## Rename: Tideline → Swellfi
+
+The product is now **Swellfi** (domain `swellfi.xyz`). The handoff docs in `docs/` keep the old name; everything else was renamed:
+
+- Brand: `NEXT_PUBLIC_BRAND_NAME=Swellfi`, used in the UI, page titles and the wallet sign-in message.
+- Package scope: `@swellfi/*`.
+- Hyperliquid agent name: `swellfi valid_until <ms>`. An agent approved under the old `tideline` name isn't recognised; the user clicks "Enable trading" again.
+- Browser key vault: IndexedDB `swellfi-vault`. Agent keys stored under the old name aren't migrated, which only affects local testing.
+- Invite codes: prefix `SWELL-` (seeded `SWELL-ALPHA`, `SWELL-BETA`). Codes already redeemed stay valid.
+- Postgres user/database: `swellfi` (local and the VPS setup in the README).
+- PM2: `swellfi-api` and `swellfi-web`.
+- Nginx: `deploy/nginx/swellfi.conf`, serving `swellfi.xyz` and `www.swellfi.xyz`.

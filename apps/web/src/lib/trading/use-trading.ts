@@ -16,7 +16,7 @@ import {
   type AccountPosition,
   type Market,
   type OrderIntent,
-} from "@tideline/hl";
+} from "@swellfi/hl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { createPublicClient, http, type PrivateKeyAccount } from "viem";

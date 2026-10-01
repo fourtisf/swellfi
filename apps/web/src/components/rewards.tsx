@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fUsd, Icon } from "@tideline/ui";
+import { fUsd, Icon } from "@swellfi/ui";
 import { api, type Tier } from "@/lib/api";
 import { BRAND } from "@/lib/env";
 import { useSession } from "@/lib/session";

@@ -19,7 +19,7 @@ const schema = z.object({
   /** HMAC secret for wallet sign-in sessions (≥ 32 chars). Required in production. */
   SESSION_SECRET: z.string().default(""),
   NEXT_PUBLIC_HL_NETWORK: z.enum(["testnet", "mainnet"]).default("testnet"),
-  NEXT_PUBLIC_BRAND_NAME: z.string().default("Tideline"),
+  NEXT_PUBLIC_BRAND_NAME: z.string().default("Swellfi"),
   INVITE_ONLY: bool.default("true"),
   ADMIN_ADDRESSES: z
     .string()

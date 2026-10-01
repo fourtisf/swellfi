@@ -1,4 +1,4 @@
-// Tideline data model. All money / price / size values are Decimal.
+// Swellfi data model. All money / price / size values are Decimal.
 // Hyperliquid is the source of truth for balances and positions; these tables
 // hold the social layer plus an indexed copy of fills and daily stats.
 

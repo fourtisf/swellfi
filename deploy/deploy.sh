@@ -19,11 +19,11 @@ pnpm db:generate
 pnpm db:deploy
 
 echo "→ building"
-pnpm --filter @tideline/api build
-pnpm --filter @tideline/web build
+pnpm --filter @swellfi/api build
+pnpm --filter @swellfi/web build
 
 echo "→ reloading PM2"
-if pm2 describe tideline-api >/dev/null 2>&1; then
+if pm2 describe swellfi-api >/dev/null 2>&1; then
   pm2 reload deploy/ecosystem.config.cjs --update-env
 else
   pm2 start deploy/ecosystem.config.cjs

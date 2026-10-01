@@ -1,25 +1,25 @@
 {
-  "name": "tideline",
+  "name": "swellfi",
   "private": true,
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @tideline/web --filter @tideline/api dev",
-    "dev:web": "pnpm --filter @tideline/web dev",
-    "dev:api": "pnpm --filter @tideline/api dev",
-    "build": "pnpm db:generate && pnpm --filter @tideline/api build && pnpm --filter @tideline/web build",
-    "start": "pnpm --parallel --filter @tideline/web --filter @tideline/api start",
+    "dev": "pnpm --parallel --filter @swellfi/web --filter @swellfi/api dev",
+    "dev:web": "pnpm --filter @swellfi/web dev",
+    "dev:api": "pnpm --filter @swellfi/api dev",
+    "build": "pnpm db:generate && pnpm --filter @swellfi/api build && pnpm --filter @swellfi/web build",
+    "start": "pnpm --parallel --filter @swellfi/web --filter @swellfi/api start",
     "typecheck": "pnpm -r --parallel typecheck",
-    "lint": "pnpm --filter @tideline/web lint",
+    "lint": "pnpm --filter @swellfi/web lint",
     "test": "pnpm -r test",
-    "db:generate": "pnpm --filter @tideline/db generate",
-    "db:migrate": "pnpm --filter @tideline/db migrate:dev",
-    "db:deploy": "pnpm --filter @tideline/db migrate:deploy",
-    "db:seed": "pnpm --filter @tideline/db seed",
-    "db:studio": "pnpm --filter @tideline/db studio",
-    "mock:hl": "pnpm --filter @tideline/web mock:hl"
+    "db:generate": "pnpm --filter @swellfi/db generate",
+    "db:migrate": "pnpm --filter @swellfi/db migrate:dev",
+    "db:deploy": "pnpm --filter @swellfi/db migrate:deploy",
+    "db:seed": "pnpm --filter @swellfi/db seed",
+    "db:studio": "pnpm --filter @swellfi/db studio",
+    "mock:hl": "pnpm --filter @swellfi/web mock:hl"
   },
   "devDependencies": {
     "typescript": "5.9.3"

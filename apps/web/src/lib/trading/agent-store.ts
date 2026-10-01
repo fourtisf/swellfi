@@ -12,7 +12,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
  * cancel orders; it cannot withdraw (withdrawals are signed by the master wallet).
  */
 
-const DB = "tideline-vault";
+const DB = "swellfi-vault";
 const STORE = "kv";
 const VAULT_KEY = "vault-key";
 
