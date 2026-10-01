@@ -152,20 +152,23 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 
 ### One-time server setup
 
+DNS first: an `A` record for `swellfi.xyz` and a `CNAME` (or `A`) for `www` pointing at the VPS. Then, as root on a fresh Ubuntu 24.04 server:
+
 ```bash
-# Node 22 + pnpm + PM2
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs
-sudo corepack enable && sudo npm i -g pm2
-# Postgres, Redis, Nginx, certbot
-sudo apt-get install -y postgresql redis-server nginx certbot python3-certbot-nginx
-sudo -u postgres psql -c "CREATE USER swellfi WITH PASSWORD '<strong>';" -c "CREATE DATABASE swellfi OWNER swellfi;"
-# App
-git clone <repo> /srv/swellfi && cd /srv/swellfi
-cp .env.example .env    # production values: SEED_DEMO=false, APP_URL=https://swellfi.xyz, Privy keys, builder
-pnpm install --frozen-lockfile && pnpm db:generate && pnpm db:deploy && pnpm db:seed
-pnpm build
-pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup
+curl -fsSL https://raw.githubusercontent.com/fourtisf/swellfi/claude/new-session-i27eid/deploy/bootstrap.sh -o bootstrap.sh
+EMAIL=you@example.com bash bootstrap.sh
+# optional: BUILDER=0x… ADMIN=0x…,0x… BRANCH=main
 ```
+
+`deploy/bootstrap.sh` is safe to re-run. It:
+
+- installs Node 22, pnpm, PM2, Postgres, Redis, Nginx and certbot, and adds 2 GB swap on small machines;
+- creates a `swellfi` system user that owns `/srv/swellfi` and runs the apps;
+- writes `/srv/swellfi/.env` once (chmod 600) with a random `SESSION_SECRET`, a random database password, `SEED_DEMO=false`, testnet, and fresh invite codes (the repo's codes are public). Re-runs never overwrite it;
+- migrates, seeds the invite codes, builds, and starts both apps under PM2 with boot persistence;
+- gets a Let's Encrypt certificate (webroot, auto-renewing), installs `deploy/nginx/swellfi.conf`, and enables `ufw` for SSH, 80 and 443.
+
+`NEXT_PUBLIC_*` values are baked in at build time: after editing them in `.env`, run the update below.
 
 ### Nginx
 
@@ -175,19 +178,12 @@ pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup
 - `/ws` → API, with WebSocket upgrade headers and a 1 h read timeout
 - everything else → Next on :3000
 
-It also sets HSTS and caches `/_next/static`.
-
-```bash
-sudo cp deploy/nginx/swellfi.conf /etc/nginx/sites-available/swellfi
-sudo ln -s /etc/nginx/sites-available/swellfi /etc/nginx/sites-enabled/
-sudo certbot --nginx -d swellfi.xyz -d www.swellfi.xyz   # issues the certificate referenced in the file
-sudo nginx -t && sudo systemctl reload nginx
-```
+It redirects HTTP and `www` to `https://swellfi.xyz`, sets HSTS and caches `/_next/static`. The bootstrap installs it after the certificate exists; to update it later, copy it to `/etc/nginx/sites-available/swellfi` and run `nginx -t && systemctl reload nginx`.
 
 ### Subsequent deploys
 
 ```bash
-./deploy/deploy.sh            # pull → install → migrate → build → pm2 reload → health check
+sudo -u swellfi -H bash -lc 'cd /srv/swellfi && ./deploy/deploy.sh'   # pull → install → migrate → build → pm2 reload → health check
 ```
 
 ### PM2
