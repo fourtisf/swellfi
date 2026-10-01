@@ -53,12 +53,12 @@ echo "pnpm $(pnpm -v), pm2 $(pm2 -v 2>/dev/null | tail -1)"
 
 step "Swap (the Next.js build needs memory)"
 mem_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
-if [ "$mem_mb" -lt 3500 ] && ! swapon --show | grep -q .; then
+if [ "$mem_mb" -lt 3500 ] && [ -z "$(swapon --show --noheadings)" ]; then
   fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
   grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
   echo "added 2G swap (RAM ${mem_mb} MB)"
 else
-  echo "RAM ${mem_mb} MB, swap: $(swapon --show --noheadings | wc -l) device(s)"
+  echo "RAM ${mem_mb} MB, swap devices: $(swapon --show --noheadings | awk 'END{print NR}')"
 fi
 
 step "App user and code"
@@ -78,12 +78,12 @@ if [ -f "$ENV_FILE" ]; then
   echo ".env exists: keeping its secrets"
 else
   DB_PASS=$(openssl rand -hex 24)
-  if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$APP_USER'" | grep -q 1; then
+  if [ "$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$APP_USER'")" = 1 ]; then
     sudo -u postgres psql -qc "ALTER ROLE $APP_USER WITH PASSWORD '$DB_PASS';"
   else
     sudo -u postgres psql -qc "CREATE ROLE $APP_USER WITH LOGIN PASSWORD '$DB_PASS';"
   fi
-  sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$APP_USER'" | grep -q 1 \
+  [ "$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$APP_USER'")" = 1 ] \
     || sudo -u postgres psql -qc "CREATE DATABASE $APP_USER OWNER $APP_USER;"
 
   # Invite codes in the repo are public, so production gets its own.
@@ -153,7 +153,7 @@ ln -sf /etc/nginx/sites-available/swellfi /etc/nginx/sites-enabled/swellfi
 nginx -t && systemctl reload nginx
 
 step "Firewall"
-ssh_port=$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')
+ssh_port=$( (sshd -T 2>/dev/null || true) | awk '/^port /{p=$2} END{print p}')
 ufw allow "${ssh_port:-22}/tcp" >/dev/null
 ufw allow 80/tcp >/dev/null
 ufw allow 443/tcp >/dev/null
