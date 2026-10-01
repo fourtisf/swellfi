@@ -59,11 +59,18 @@ function page(next: string, error: string): string {
 <meta name="theme-color" content="#070B14">
 <title>${brand} — Private preview</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preload" as="image" href="/access/terminal-desktop.jpg" media="(min-width: 641px)">
+<link rel="preload" as="image" href="/access/terminal-mobile.jpg" media="(max-width: 640px)">
 <style>
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
-body{display:grid;place-items:center;padding:24px 16px;background:radial-gradient(900px 520px at 50% -10%,rgba(77,181,255,.16),transparent 70%),#070B14;color:#EAF1FA;font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
-.card{width:100%;max-width:400px;padding:32px 28px;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0) 120px),#0D1320;border:1px solid rgba(255,255,255,.08);box-shadow:0 24px 60px -24px rgba(0,0,0,.8)}
+body{display:grid;place-items:center;padding:24px 16px;background:#070B14;color:#EAF1FA;font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+/* The trading terminal behind the card: a screenshot (public/access/), so no app code or live
+   data loads before unlocking. */
+body::before{content:"";position:fixed;inset:-24px;background:url(/access/terminal-desktop.jpg) center top/cover no-repeat;filter:blur(2.5px) saturate(1.05)}
+body::after{content:"";position:fixed;inset:0;background:radial-gradient(560px 400px at 50% 50%,rgba(7,11,20,.6),rgba(7,11,20,.28) 75%)}
+@media (max-width:640px){body::before{background-image:url(/access/terminal-mobile.jpg)}}
+.card{position:relative;z-index:1;width:100%;max-width:400px;padding:32px 28px;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 120px),rgba(13,19,32,.84);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);box-shadow:0 30px 80px -20px rgba(0,0,0,.85)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:-.01em;margin-bottom:28px}
 .brand img{width:34px;height:34px}
 h1{font-size:22px;font-weight:650;letter-spacing:-.015em;margin-bottom:6px}
