@@ -26,6 +26,23 @@ jobs:
           done
           echo "== nameservers"; dig +short NS "$DOMAIN"
 
+      - name: DNS comparison (incl. NordVPN resolvers)
+        continue-on-error: true
+        run: |
+          for d in "$DOMAIN" noxsea.xyz; do
+            echo "=================== $d"
+            echo "-- NS:"; dig +short NS "$d"
+            echo "-- SOA:"; dig +short SOA "$d"
+            echo "-- DS (DNSSEC at registry):"; dig +short DS "$d" @1.1.1.1
+            echo "-- A TTL:"; dig +noall +answer A "$d" @8.8.8.8
+            for r in 103.86.96.100 103.86.99.100 1.1.1.1 8.8.8.8 9.9.9.9 208.67.222.222; do
+              out=$(dig +time=4 +tries=1 "@$r" "$d" A +noall +comments +answer 2>&1 | grep -E "status:|IN\s+A" | tr '\n' ' ')
+              echo "resolver $r: $out"
+            done
+          done
+          echo "-- authoritative answer for $DOMAIN:"
+          ns=$(dig +short NS "$DOMAIN" | head -1); dig +norec "@$ns" "$DOMAIN" A +noall +answer +comments | grep -E "status|flags|IN\s+A"
+
       - name: TLS certificate
         run: |
           echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null \
