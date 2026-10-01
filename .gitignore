@@ -22,3 +22,6 @@ playwright-report/
 apps/web/e2e/__screens__/
 
 .DS_Store
+
+# local redis snapshot
+dump.rdb
