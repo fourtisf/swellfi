@@ -1,0 +1,211 @@
+// Tideline data model. All money / price / size values are Decimal.
+// Hyperliquid is the source of truth for balances and positions; these tables
+// hold the social layer plus an indexed copy of fills and daily stats.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  privyId         String    @unique
+  address         String    @unique // master wallet, lowercase
+  handle          String    @unique
+  avatarUrl       String?
+  bio             String?
+  xHandle         String?
+  xVerified       Boolean   @default(false)
+  isPublic        Boolean   @default(true)
+  isDemo          Boolean   @default(false) // seeded dev data, never in production
+  referralCode    String    @unique
+  referredById    String?
+  inviteCode      String?
+  termsAcceptedAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  referredBy  User?          @relation("Referrals", fields: [referredById], references: [id])
+  referrals   User[]         @relation("Referrals")
+  fills       Fill[]
+  stats       DailyStat[]
+  posts       Post[]
+  likes       Like[]
+  watchlist   WatchItem[]
+  chat        ChatMessage[]
+  activity    Activity[]
+  rewards     RewardLedger[]
+  followers   Follow[]       @relation("following")
+  following   Follow[]       @relation("follower")
+  managedFund Fund[]
+}
+
+model WaitlistEntry {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  xHandle    String?
+  status     String    @default("pending") // pending | approved | rejected
+  inviteCode String? // issued on approval
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+}
+
+model InviteCode {
+  code      String    @id
+  ownerId   String? // user who can share it (null = admin issued)
+  usedById  String? // last user who redeemed it
+  usedAt    DateTime?
+  maxUses   Int       @default(1)
+  uses      Int       @default(0)
+  note      String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model Fill {
+  id         String   @id // `${hash}:${tid}` from Hyperliquid
+  hash       String
+  userId     String
+  coin       String
+  side       String // B | A
+  px         Decimal  @db.Decimal(30, 10)
+  sz         Decimal  @db.Decimal(30, 10)
+  fee        Decimal  @db.Decimal(30, 10)
+  builderFee Decimal? @db.Decimal(30, 10)
+  closedPnl  Decimal  @db.Decimal(30, 10)
+  dir        String // "Open Long", "Close Short", ...
+  time       DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, time])
+  @@index([time])
+}
+
+model DailyStat {
+  userId       String
+  date         DateTime @db.Date
+  pnl          Decimal  @db.Decimal(30, 10)
+  volume       Decimal  @db.Decimal(30, 10)
+  equity       Decimal  @db.Decimal(30, 10) // account value at end of day
+  trades       Int
+  closedTrades Int      @default(0)
+  wins         Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
+  @@index([date])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  position  Json? // snapshot of the attached position: { coin, side, lev, entry }
+  createdAt DateTime @default(now())
+  likes     Int      @default(0)
+  replies   Int      @default(0)
+
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likedBy Like[]
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model Like {
+  userId String
+  postId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+  deleted   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model WatchItem {
+  userId    String
+  coin      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, coin])
+}
+
+model RewardLedger {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String // rebate | referral
+  amount    Decimal   @db.Decimal(30, 10)
+  refFillId String?
+  createdAt DateTime  @default(now())
+  claimedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, claimedAt])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // open | close | verify | follow | fund
+  data      Json
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+// Phase 4: funds are native Hyperliquid vaults. We keep listing metadata here and a
+// cached copy of the vault's stats (refreshed from Hyperliquid by the indexer).
+model Fund {
+  id           String   @id @default(cuid())
+  vaultAddress String?  @unique
+  name         String
+  managerId    String
+  strategy     String
+  perfFeePct   Decimal  @db.Decimal(6, 2)
+  risk         Int // 1..5
+  minDeposit   Decimal  @db.Decimal(30, 10)
+  aum          Decimal  @db.Decimal(30, 10)
+  members      Int      @default(0)
+  return30d    Decimal  @db.Decimal(12, 4) // percent
+  maxDrawdown  Decimal  @db.Decimal(12, 4) // percent, negative
+  series       Json // share value, daily, last 30 days
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  manager User @relation(fields: [managerId], references: [id], onDelete: Cascade)
+}

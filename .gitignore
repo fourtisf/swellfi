@@ -1,0 +1,24 @@
+node_modules/
+.pnpm-store/
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.turbo/
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+logs/
+
+# test output
+test-results/
+playwright-report/
+apps/web/e2e/__screens__/
+
+.DS_Store

@@ -1,0 +1,36 @@
+{
+  "name": "@tideline/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p ${WEB_PORT:-3000}",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test",
+    "mock:hl": "node e2e/mock-hl.mjs"
+  },
+  "dependencies": {
+    "@privy-io/react-auth": "3.46.0",
+    "@tanstack/react-query": "5.104.0",
+    "@tideline/hl": "workspace:*",
+    "@tideline/ui": "workspace:*",
+    "lightweight-charts": "4.2.3",
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@next/env": "14.2.35",
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.20.4",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.35",
+    "typescript": "5.9.3",
+    "ws": "^8.18.3"
+  }
+}

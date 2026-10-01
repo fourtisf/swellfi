@@ -1,0 +1,342 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { change24h, displayName, type Market } from "@tideline/hl";
+import { CoinIcon, Empty, fPct, fUsd, Icon, sgn, Sparkline } from "@tideline/ui";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api, type ActivityItem, type LeaderRow } from "@/lib/api";
+import { BRAND } from "@/lib/env";
+import { useNow } from "@/lib/hooks";
+import { loadSparks, useMarkets } from "@/lib/market";
+import { traderHref, tradeHref } from "@/lib/routes";
+import { useSession } from "@/lib/session";
+import { openModal } from "@/lib/ui-store";
+import { LiveChg, LivePx } from "./live";
+import { ActivityRow, TraderCell } from "./social";
+
+type HomeKey = "vol" | "gain" | "loss" | "tradfi";
+
+function useHomeList(k: HomeKey) {
+  const markets = useMarkets((s) => s.markets);
+  const mids = useMarkets((s) => s.mids);
+  return useMemo(() => {
+    let l: Market[] = [...markets];
+    const chg = (m: Market) => change24h(m, mids[m.name]);
+    if (k === "gain") l.sort((a, b) => chg(b) - chg(a));
+    else if (k === "loss") l.sort((a, b) => chg(a) - chg(b));
+    else if (k === "tradfi") l = l.filter((m) => m.kind === "tradfi");
+    return l;
+    // Re-sort gainers/losers on market refresh, not on every tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markets, k]);
+}
+
+function HeroCtas() {
+  const s = useSession();
+  if (s.status === "ready") {
+    return (
+      <div className="ctas">
+        <Link className="btn btn-brand" href="/trade">
+          Start trading <Icon name="arrow" size={16} />
+        </Link>
+        <Link className="btn btn-ghost" href="/rankings">
+          See top traders
+        </Link>
+      </div>
+    );
+  }
+  if (s.status === "needsInvite") {
+    return (
+      <div className="ctas">
+        <button className="btn btn-brand" onClick={() => openModal("invite")}>
+          Enter invite code <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
+        </button>
+        <Link className="btn btn-ghost" href="/rankings">
+          See top traders
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <div className="ctas">
+      <button className="btn btn-brand" onClick={() => openModal("waitlist")}>
+        Join waitlist <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
+      </button>
+      <button className="btn btn-ghost" onClick={() => openModal("wallet")}>
+        Log in
+      </button>
+    </div>
+  );
+}
+
+function PlatformStats() {
+  const q = useQuery({ queryKey: ["stats"], queryFn: () => api<{ users: number; tvl: string; volume: string; trades: number }>("/stats"), refetchInterval: 30_000 });
+  const d = q.data;
+  return (
+    <div className="pstats" id="stats">
+      <div>
+        <b>{d ? d.users.toLocaleString() : "—"}</b>
+        <span>Global users</span>
+      </div>
+      <div className="hl">
+        <b>{d ? fUsd(+d.tvl, 0) : "—"}</b>
+        <span>Platform TVL</span>
+      </div>
+      <div>
+        <b>{d ? fUsd(+d.volume, 0) : "—"}</b>
+        <span>Trading volume</span>
+      </div>
+      <div>
+        <b>{d ? d.trades.toLocaleString() : "—"}</b>
+        <span>Trades placed</span>
+      </div>
+    </div>
+  );
+}
+
+function LiveActivity() {
+  const now = useNow(20_000);
+  const acts = useQuery({ queryKey: ["activity", "home"], queryFn: () => api<{ items: ActivityItem[] }>("/activity?limit=7"), refetchInterval: 10_000 });
+  const sum = useQuery({
+    queryKey: ["activity", "summary"],
+    queryFn: () => api<{ volumeToday: string; topCoin: string | null; tradersToday: number }>("/activity/summary"),
+    refetchInterval: 30_000,
+  });
+  const firstId = useRef<string | null>(null);
+  const [freshId, setFreshId] = useState<string | null>(null);
+  const items = acts.data?.items ?? [];
+  const headId = items[0]?.id ?? null;
+  useEffect(() => {
+    if (firstId.current && headId && headId !== firstId.current) setFreshId(headId);
+    firstId.current = headId;
+  }, [headId]);
+  const top = sum.data?.topCoin ?? "BTC";
+  return (
+    <div className="actcard glass">
+      <div className="act-top">
+        <span className="lv">
+          <span className="dot live" />
+          Live on {BRAND}
+        </span>
+        <Link href="/feed" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--muted)", fontWeight: 500 }}>
+          View activity <Icon name="arrow" size={14} />
+        </Link>
+      </div>
+      <div className="act-sum">
+        <span>
+          <b>{fUsd(+(sum.data?.volumeToday ?? 0), 0)}</b> traded today
+        </span>
+        <i />
+        <span className="cp">
+          <CoinIcon name={top} size={20} />
+          {displayName(top)}
+        </span>
+        <span>most traded</span>
+        <i />
+        <span>
+          <b>{sum.data?.tradersToday ?? 0}</b> traders
+        </span>
+      </div>
+      <div>
+        {items.length ? (
+          items.map((a) => <ActivityRow key={a.id} a={a} now={now} fresh={a.id === freshId} />)
+        ) : (
+          <div className="empty">{acts.isLoading ? "Loading activity…" : "No activity yet. Trades show up here as they happen."}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MarketsTable() {
+  const [k, setK] = useState<HomeKey>("vol");
+  const list = useHomeList(k).slice(0, 10);
+  const spark = useMarkets((s) => s.spark);
+  const status = useMarkets((s) => s.status);
+  const router = useRouter();
+  const names = list.map((m) => m.name).join(",");
+  useEffect(() => {
+    if (names) void loadSparks(names.split(","));
+  }, [names]);
+  const segs: [HomeKey, string][] = [
+    ["vol", "Most traded"],
+    ["gain", "Gainers"],
+    ["loss", "Losers"],
+    ["tradfi", "Stocks"],
+  ];
+  return (
+    <>
+      <div className="sec-title">
+        <div>
+          <h2>Markets</h2>
+          <p>Prices stream straight from Hyperliquid. Tap any market to trade it.</p>
+        </div>
+        <div className="seg">
+          {segs.map(([key, label]) => (
+            <button key={key} className={k === key ? "on" : ""} onClick={() => setK(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="glass scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th>Market</th>
+              <th>Price</th>
+              <th>24h</th>
+              <th className="hide-m">24h chart</th>
+              <th className="hide-m">Volume</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {list.length ? (
+              list.map((m) => (
+                <tr key={m.name} className="click" onClick={() => router.push(tradeHref(m.name))}>
+                  <td>
+                    <div className="who">
+                      <CoinIcon name={m.name} size={32} />
+                      <div>
+                        <span className="n">{displayName(m.name)}</span>
+                        <small>
+                          {m.kind === "tradfi" ? "Stock & commodity" : "Crypto"} · {m.maxLev}x
+                        </small>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ fontWeight: 600 }}>
+                    <LivePx coin={m.name} />
+                  </td>
+                  <td>
+                    <LiveChg coin={m.name} chip />
+                  </td>
+                  <td className="hide-m">{spark[m.name] ? <Sparkline data={spark[m.name]} width={120} height={34} fill={0.25} /> : <span className="dim">—</span>}</td>
+                  <td className="hide-m">{fUsd(m.vol)}</td>
+                  <td>
+                    <span className="btn btn-ghost" style={{ height: 32, padding: "0 14px", fontSize: 12.5 }}>
+                      Trade
+                    </span>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6}>
+                  <div className="empty">{status === "error" ? "Couldn't reach Hyperliquid. Retrying…" : "Loading markets…"}</div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function Portfolio() {
+  const s = useSession();
+  if (s.status !== "ready") {
+    return (
+      <Empty icon={<Icon name="wallet" size={22} />} title={s.status === "needsInvite" ? "Finish signing up to see your portfolio" : "Connect a wallet to see your portfolio"}>
+        Balance, open positions and PnL show up here.
+        <div style={{ marginTop: 16 }}>
+          <button className="btn btn-brand" onClick={() => openModal(s.status === "needsInvite" ? "invite" : "wallet")}>
+            {s.status === "needsInvite" ? "Enter invite code" : "Connect wallet"}
+          </button>
+        </div>
+      </Empty>
+    );
+  }
+  return (
+    <>
+      <div className="kv" style={{ margin: "16px 18px" }}>
+        <div>
+          <small>Available</small>
+          <b>—</b>
+        </div>
+        <div>
+          <small>Unrealized PnL</small>
+          <b>—</b>
+        </div>
+        <div>
+          <small>Open positions</small>
+          <b>0</b>
+        </div>
+      </div>
+      <div className="empty" style={{ paddingTop: 10 }}>
+        Your Hyperliquid balance and positions appear here once trading is enabled.
+      </div>
+    </>
+  );
+}
+
+function TopTraders() {
+  const q = useQuery({ queryKey: ["leaderboard", "7d", 5], queryFn: () => api<{ rows: LeaderRow[] }>("/leaderboard?tf=7d&limit=5") });
+  const router = useRouter();
+  return (
+    <table>
+      <tbody>
+        {(q.data?.rows ?? []).map((t, i) => (
+          <tr key={t.user.id} className="click" onClick={() => router.push(traderHref(t.user.handle))}>
+            <td>
+              <div className="who">
+                <span className="rank" style={i < 3 ? { color: "var(--brand)" } : undefined}>
+                  {i + 1}
+                </span>
+                <TraderCell user={t.user} />
+              </div>
+            </td>
+            <td className="hide-m">
+              <Sparkline data={t.series} width={90} height={30} fill={0.2} />
+            </td>
+            <td>
+              <b className={sgn(+t.pnl)}>{fUsd(+t.pnl, 0)}</b>
+              <small className="dim" style={{ display: "block" }}>
+                {fPct(t.roi, 1)}
+              </small>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export function HomeView() {
+  return (
+    <section className="view on" id="v-home">
+      <div className="hero2 glass glow-border">
+        <h1>Every trade leaves a wake.</h1>
+        <p>Trade crypto, stocks and commodities with leverage. Follow the traders worth following and build a track record of your own.</p>
+        <HeroCtas />
+        <PlatformStats />
+      </div>
+      <LiveActivity />
+      <div className="wrap-1040">
+        <MarketsTable />
+        <div className="duo" style={{ marginTop: 18 }}>
+          <div className="glass">
+            <div className="ph">
+              <h3>Portfolio</h3>
+              <span className="mut" />
+            </div>
+            <Portfolio />
+          </div>
+          <div className="glass">
+            <div className="ph">
+              <h3>Top traders this week</h3>
+              <Link className="mut" href="/rankings">
+                View all
+              </Link>
+            </div>
+            <TopTraders />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

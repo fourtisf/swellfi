@@ -1,0 +1,165 @@
+# Tideline
+
+Non-custodial Hyperliquid perps trading with a social layer: rankings, feed, live activity and global chat.
+
+- **Spec:** `docs/HANDOFF.md`
+- **UI source of truth:** `docs/tideline-prototype.html`
+- **Plan and phase status:** `PLAN.md`
+- **Verified Hyperliquid/Privy facts:** `NOTES.md`
+
+> **Status:** Phase 1 (read-only foundation). All trading runs on **Hyperliquid testnet** until mainnet is explicitly approved (`NEXT_PUBLIC_HL_NETWORK`).
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Web | Next.js 14 (App Router, TS), Privy, TanStack Query, zustand, lightweight-charts |
+| API | Fastify 5 (TS), zod, `@fastify/rate-limit` (Redis), `@fastify/websocket` |
+| Data | PostgreSQL 16 + Prisma 6 (Decimal for money), Redis 7 |
+| Ops | PM2 + Nginx on a Hostinger VPS |
+| Monorepo | pnpm workspaces: `apps/web`, `apps/api`, `packages/{db,hl,ui}` |
+
+## Prerequisites
+
+- **Node ≥ 22.12.** The Hyperliquid SDK used in Phase 2 requires it. See `.nvmrc`.
+- **pnpm 10:** `corepack enable`
+- **PostgreSQL 16 and Redis 7.** For local dev, `docker compose up -d` starts both.
+
+## Setup
+
+```bash
+pnpm install
+cp .env.example .env          # then fill in the values below
+pnpm db:generate
+pnpm db:migrate               # dev: creates/applies migrations
+pnpm db:seed                  # invite codes + (SEED_DEMO=true) demo traders, posts, funds, chat
+pnpm dev                      # web on :3000, API on :4000 (Next proxies /api to the API)
+```
+
+Then open http://localhost:3000.
+
+- Log in with Privy, then redeem one of the `SEED_INVITE_CODES` (default `TIDE-ALPHA`).
+- To make yourself an admin, add your wallet to `ADMIN_ADDRESSES`.
+
+### Environment variables (`.env` at the repo root, read by every app)
+
+| Variable | Notes |
+|---|---|
+| `NEXT_PUBLIC_BRAND_NAME` | Placeholder brand (`Tideline`) |
+| `APP_URL` | Public origin. Used for CORS and referral links |
+| `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET` | From the Privy dashboard. Enable email login, embedded Ethereum wallets and external wallets |
+| `PRIVY_VERIFICATION_KEY` | Optional. Verifies tokens locally, without fetching Privy's JWKS |
+| `NEXT_PUBLIC_HL_NETWORK` | `testnet` (default) or `mainnet`. **Mainnet requires ALFA's sign-off** |
+| `NEXT_PUBLIC_HL_DATA_NETWORK` | Optional. Market data from another network (e.g. mainnet prices in a demo) |
+| `NEXT_PUBLIC_HL_HIP3_DEXES` | HIP-3 dexes to list, e.g. `xyz` (stocks and commodities) |
+| `NEXT_PUBLIC_HL_INFO_URL`, `NEXT_PUBLIC_HL_WS_URL` | Optional overrides (local mock, own node) |
+| `NEXT_PUBLIC_BUILDER_ADDRESS`, `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` | Builder code. `50` = 0.05%; the perps max is `100` |
+| `DATABASE_URL`, `REDIS_URL` | Postgres and Redis |
+| `API_PORT`, `API_HOST`, `API_INTERNAL_URL` | API bind address; where Next proxies `/api` in dev |
+| `INVITE_ONLY` | `true`: sign-up requires an invite code |
+| `ADMIN_ADDRESSES` | Comma-separated master wallets allowed to use `/api/admin/*` |
+| `REWARD_TIERS_JSON` | Optional. Override reward tiers: `[{"name","minVolume","rebatePct","referralPct"}]` |
+| `X_CLIENT_ID`, `X_CLIENT_SECRET` | Phase 3 (X verification) |
+| `SEED_DEMO`, `SEED_INVITE_CODES` | Dev seed only. **Never set `SEED_DEMO=true` against production** |
+
+`NEXT_PUBLIC_*` values are compiled into the web bundle at build time. Rebuild the web app after changing them.
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Web and API with hot reload |
+| `pnpm build` | Prisma generate → API bundle (`apps/api/dist`) → Next production build |
+| `pnpm typecheck` / `pnpm lint` / `pnpm test` | Checks. API tests need Postgres and Redis; they use `tideline_test` and Redis db 15 |
+| `pnpm db:migrate` / `pnpm db:deploy` | Create and apply migrations (dev) / apply only (prod) |
+| `pnpm db:seed` | Seed invite codes (and demo data if `SEED_DEMO=true`) |
+| `pnpm --filter @tideline/db exec tsx src/seed.ts --purge-demo` | Delete all demo rows |
+| `pnpm mock:hl` | Local mock Hyperliquid API + WS on :4100, for offline dev and e2e |
+
+### End-to-end smoke tests
+
+```bash
+pnpm mock:hl &                                    # mock Hyperliquid
+NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://localhost:4100/ws \
+  pnpm --filter @tideline/web build
+pnpm start &                                      # API + web
+pnpm --filter @tideline/web e2e                   # Playwright (set CHROMIUM_PATH if needed)
+```
+
+### Admin: approving the waitlist
+
+```bash
+TOKEN=<Privy access token of an admin>
+curl -H "Authorization: Bearer $TOKEN" https://<host>/api/admin/waitlist
+curl -X POST -H "Authorization: Bearer $TOKEN" https://<host>/api/admin/waitlist/<id>/approve   # → invite code to email
+curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+     -d '{"count":10,"maxUses":1}' https://<host>/api/admin/invites
+```
+
+## Deploying to the VPS (Hostinger, Ubuntu)
+
+### One-time server setup
+
+```bash
+# Node 22 + pnpm + PM2
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs
+sudo corepack enable && sudo npm i -g pm2
+# Postgres, Redis, Nginx, certbot
+sudo apt-get install -y postgresql redis-server nginx certbot python3-certbot-nginx
+sudo -u postgres psql -c "CREATE USER tideline WITH PASSWORD '<strong>';" -c "CREATE DATABASE tideline OWNER tideline;"
+# App
+git clone <repo> /srv/tideline && cd /srv/tideline
+cp .env.example .env    # production values: SEED_DEMO=false, APP_URL=https://<domain>, Privy keys, builder
+pnpm install --frozen-lockfile && pnpm db:generate && pnpm db:deploy && pnpm db:seed
+pnpm build
+pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup
+```
+
+### Nginx
+
+`deploy/nginx/tideline.conf` routes:
+
+- `/api/` → API on :4000
+- `/ws` → API, with WebSocket upgrade headers and a 1 h read timeout
+- everything else → Next on :3000
+
+It also sets HSTS and caches `/_next/static`.
+
+```bash
+sudo cp deploy/nginx/tideline.conf /etc/nginx/sites-available/tideline
+sudo sed -i 's/tideline.example.com/<your-domain>/g' /etc/nginx/sites-available/tideline
+sudo ln -s /etc/nginx/sites-available/tideline /etc/nginx/sites-enabled/
+sudo certbot --nginx -d <your-domain>     # issues the certificate referenced in the file
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Subsequent deploys
+
+```bash
+./deploy/deploy.sh            # pull → install → migrate → build → pm2 reload → health check
+```
+
+### PM2
+
+`deploy/ecosystem.config.cjs` runs two processes:
+
+- `tideline-api`: `node --env-file=.env apps/api/dist/index.js`
+- `tideline-web`: `next start` on 127.0.0.1:3000
+
+Useful commands: `pm2 logs`, `pm2 status`, `pm2 reload all`.
+
+## Security model
+
+- **Non-custodial.**
+  - The server never holds user funds or any private key.
+  - The trading agent key (Phase 2) is generated and encrypted in the browser. It can place and cancel orders but cannot withdraw.
+  - Withdrawals are signed by the user's master wallet.
+- **API.**
+  - Every signed-in route verifies the Privy access token.
+  - Invite redemption checks that the submitted wallet is linked to that Privy user.
+  - Inputs are validated with zod.
+  - Global and per-route rate limits are stored in Redis.
+  - Helmet headers are set.
+- **Web.**
+  - Security headers are set.
+  - A CSP ships in report-only mode until the Privy and WalletConnect host list is confirmed. See NOTES.md.
