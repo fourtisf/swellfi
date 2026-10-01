@@ -59,6 +59,7 @@ Then open http://localhost:3000.
 | `DATABASE_URL`, `REDIS_URL` | Postgres and Redis |
 | `API_PORT`, `API_HOST`, `API_INTERNAL_URL` | API bind address; where Next proxies `/api` in dev |
 | `INVITE_ONLY` | `true`: sign-up requires an invite code |
+| `SITE_ACCESS_CODE` | Private preview: when set, every page asks for this code first (`/access`, 10 wrong tries per IP per 15 min). Empty = public site |
 | `ADMIN_ADDRESSES` | Comma-separated master wallets allowed to use `/api/admin/*` |
 | `REWARD_TIERS_JSON` | Optional. Override reward tiers: `[{"name","minVolume","rebatePct","referralPct"}]` |
 | `X_CLIENT_ID`, `X_CLIENT_SECRET` | Phase 3 (X verification) |
