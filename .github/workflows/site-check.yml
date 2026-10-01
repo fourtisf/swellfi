@@ -59,6 +59,8 @@ jobs:
         run: |
           curl -4 -sS -o /dev/null -w "http://$DOMAIN      -> %{http_code} %{redirect_url}\n" "http://$DOMAIN/"
           curl -4 -sS -o /dev/null -w "https://www.$DOMAIN -> %{http_code} %{redirect_url}\n" "https://www.$DOMAIN/"
+          curl -4 -sS -o /dev/null -w "http://www.$DOMAIN  -> %{http_code} %{redirect_url}\n" "http://www.$DOMAIN/"
+          echo "HSTS: $(curl -4 -sSI "https://$DOMAIN/" | grep -i '^strict-transport-security' | tr -d '\r')"
 
       - name: Static assets
         run: |

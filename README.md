@@ -178,7 +178,7 @@ EMAIL=you@example.com bash bootstrap.sh
 - `/ws` → API, with WebSocket upgrade headers and a 1 h read timeout
 - everything else → Next on :3000
 
-It redirects HTTP and `www` to `https://swellfi.xyz`, sets HSTS and caches `/_next/static`. The bootstrap installs it after the certificate exists; to update it later, copy it to `/etc/nginx/sites-available/swellfi` and run `nginx -t && systemctl reload nginx`.
+It redirects HTTP to HTTPS on the same host and then `www` to `https://swellfi.xyz`, sends an HSTS header with `preload` (submit the domain at https://hstspreload.org once you're sure every subdomain will stay HTTPS), and caches `/_next/static`. The bootstrap installs it after the certificate exists; to update it later, copy it to `/etc/nginx/sites-available/swellfi` and run `nginx -t && systemctl reload nginx`.
 
 ### Subsequent deploys
 
