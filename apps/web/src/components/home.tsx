@@ -17,6 +17,7 @@ import { openModal } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
 import { MarketHighlights, MarketsTable } from "./markets";
 import { ActivityRow, TraderCell } from "./social";
+import { CtaBand, Features, HeroBackdrop, HeroProof, HeroShowcase, HowItWorks, MarketStrip } from "./landing";
 
 type HomeKey = "vol" | "gain" | "loss" | "tradfi";
 
@@ -131,7 +132,7 @@ function PlatformStats() {
 
 function LiveActivity() {
   const now = useNow(20_000);
-  const acts = useQuery({ queryKey: ["activity", "home"], queryFn: () => api<{ items: ActivityItem[] }>("/activity?limit=7"), refetchInterval: 10_000 });
+  const acts = useQuery({ queryKey: ["activity", "home"], queryFn: () => api<{ items: ActivityItem[] }>("/activity?limit=5"), refetchInterval: 10_000 });
   const sum = useQuery({
     queryKey: ["activity", "summary"],
     queryFn: () => api<{ volumeToday: string; topCoin: string | null; tradersToday: number }>("/activity/summary"),
@@ -181,23 +182,6 @@ function LiveActivity() {
       </div>
     </div>
   );
-}
-
-function Portfolio() {
-  const s = useSession();
-  if (s.status !== "ready") {
-    return (
-      <Empty icon={<Icon name="wallet" size={22} />} title={s.status === "needsInvite" ? "Finish signing up to see your portfolio" : "Connect a wallet to see your portfolio"}>
-        Balance, open positions and PnL show up here.
-        <div style={{ marginTop: 16 }}>
-          <button className="btn btn-brand" onClick={() => openModal(s.status === "needsInvite" ? "invite" : "wallet")}>
-            {s.status === "needsInvite" ? "Enter invite code" : "Connect wallet"}
-          </button>
-        </div>
-      </Empty>
-    );
-  }
-  return <LivePortfolio />;
 }
 
 function LivePortfolio() {
@@ -264,6 +248,12 @@ function TopTraders() {
   const q = useQuery({ queryKey: ["leaderboard", "7d", 5], queryFn: () => api<{ rows: LeaderRow[] }>("/leaderboard?tf=7d&limit=5") });
   const router = useRouter();
   if (q.isLoading) return <SkelRows n={5} />;
+  if (!q.data?.rows.length)
+    return (
+      <Empty icon={<Icon name="rank" size={22} />} title="Rankings open with the first trades">
+        Trade this week to claim a spot on the board.
+      </Empty>
+    );
   return (
     <table>
       <tbody>
@@ -294,41 +284,73 @@ function TopTraders() {
 }
 
 export function HomeView() {
+  const s = useSession();
   return (
-    <section className="view on" id="v-home">
-      <div className="hero2 glass glow-border">
-        <span className="hero-chip">
-          <span className="dot live" />
-          Live on Hyperliquid{HL.network === "testnet" ? " · Testnet" : ""}
-        </span>
-        <h1>
-          Every trade makes <em>waves</em>.
-        </h1>
-        <p>Trade crypto, stocks and commodities with leverage. Follow the traders worth following and build a track record of your own.</p>
-        <HeroCtas />
-        <PlatformStats />
+    <section className="view on lp" id="v-home">
+      <div className="lp-hero">
+        <HeroBackdrop />
+        <div className="lp-hero-in">
+          <div className="lp-copy">
+            <span className="hero-chip">
+              <span className="dot live" />
+              Live on Hyperliquid{HL.network === "testnet" ? " · Testnet" : ""}
+            </span>
+            <h1>
+              Every trade
+              <br />
+              makes <em>waves</em>.
+            </h1>
+            <p>Trade crypto, stocks and commodities with leverage. Follow the traders worth following and build a track record of your own.</p>
+            <HeroCtas />
+            <HeroProof />
+          </div>
+          <HeroShowcase />
+        </div>
+        <div className="lp-stats-wrap">
+          <PlatformStats />
+        </div>
       </div>
-      <LiveActivity />
+
+      <MarketStrip />
+
       <div className="wrap-1040">
+        {s.status === "ready" && (
+          <div className="glass lp-portfolio">
+            <div className="ph">
+              <h3>Your portfolio</h3>
+              <Link className="mut" href="/trade">
+                Open terminal
+              </Link>
+            </div>
+            <LivePortfolio />
+          </div>
+        )}
+
         <div className="sec-title">
           <div>
-            <h2>Markets</h2>
-            <p>Prices stream straight from Hyperliquid. Tap any market to trade it.</p>
+            <span className="lp-eyebrow">Markets</span>
+            <h2>Every market, streamed live.</h2>
+            <p>Prices come straight from Hyperliquid. Tap any market to trade it.</p>
           </div>
           <Link className="btn btn-ghost" href="/markets" style={{ height: 38 }}>
             All markets <Icon name="arrow" size={14} />
           </Link>
         </div>
         <MarketHighlights />
-        <MarketsTable limit={12} />
-        <div className="duo" style={{ marginTop: 18 }}>
-          <div className="glass">
-            <div className="ph">
-              <h3>Portfolio</h3>
-              <span className="mut" />
-            </div>
-            <Portfolio />
+        <MarketsTable limit={8} />
+
+        <div className="sec-title">
+          <div>
+            <span className="lp-eyebrow">Community</span>
+            <h2>See who&apos;s trading what.</h2>
+            <p>Live fills, follows and the week&apos;s best traders, ranked by recorded PnL.</p>
           </div>
+          <Link className="btn btn-ghost" href="/rankings" style={{ height: 38 }}>
+            Rankings <Icon name="arrow" size={14} />
+          </Link>
+        </div>
+        <div className="duo lp-duo">
+          <LiveActivity />
           <div className="glass">
             <div className="ph">
               <h3>Top traders this week</h3>
@@ -339,6 +361,12 @@ export function HomeView() {
             <TopTraders />
           </div>
         </div>
+
+        <Features />
+        <HowItWorks />
+        <CtaBand>
+          <HeroCtas />
+        </CtaBand>
       </div>
     </section>
   );

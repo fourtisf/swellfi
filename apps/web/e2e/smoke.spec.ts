@@ -32,7 +32,7 @@ test("⌘K search finds markets and traders", async ({ page }, info) => {
 
 test("waitlist signup", async ({ page }) => {
   await page.goto("/");
-  await page.locator(".hero2").getByRole("button", { name: /Join waitlist/ }).click();
+  await page.locator(".lp-copy").getByRole("button", { name: /Join waitlist/ }).click();
   await page.getByPlaceholder("you@email.com").fill(`e2e-${Date.now()}@example.com`);
   await page.locator(".modal.on").getByRole("button", { name: "Join waitlist" }).click();
   await expect(page.locator(".toast")).toContainText("You're on the waitlist");
