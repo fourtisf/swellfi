@@ -16,9 +16,9 @@ interface Rewards {
 }
 
 const GEMS: [string, string][] = [
-  ["#16C784", "#1C6FA8"],
-  ["#16C784", "#0F8A63"],
-  ["#16C784", "#5B45E0"],
+  ["#4DB5FF", "#1D5FD1"],
+  ["#9AF1FF", "#1C6FA8"],
+  ["#7FD8FF", "#3F5BE0"],
   ["#FF8FB1", "#0FA968"],
 ];
 

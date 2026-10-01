@@ -2,18 +2,18 @@
 // truth for the DOM; these are for canvas drawing (charts) and inline SVG.
 
 export const tokens = {
-  bg: "#0E1315",
-  panel: "#13191B",
-  panel2: "#1A2124",
-  chartBg: "#0B1012",
-  input: "#12181A",
+  bg: "#080D17",
+  panel: "#0D1320",
+  panel2: "#121A2A",
+  chartBg: "#070B14",
+  input: "#0C1222",
   stroke: "rgba(255,255,255,.075)",
   stroke2: "rgba(255,255,255,.12)",
-  text: "#E9EDEE",
-  muted: "#8C9598",
-  dim: "#5F686B",
-  brand: "#16C784",
-  brand2: "#0FA968",
+  text: "#EAF1FA",
+  muted: "#8B97AD",
+  dim: "#5A6680",
+  brand: "#4DB5FF",
+  brand2: "#2F86F0",
   long: "#16C784",
   short: "#EA3943",
   warn: "#F5B53D",
@@ -22,9 +22,9 @@ export const tokens = {
 
 /** Avatar / coin-fallback gradients (prototype GRAD). */
 export const GRAD: ReadonlyArray<readonly [string, string]> = [
-  ["#16C784", "#5B45E0"],
-  ["#16C784", "#1C6FA8"],
-  ["#16C784", "#0F8A63"],
+  ["#9AF1FF", "#3F5BE0"],
+  ["#4DB5FF", "#1D5FD1"],
+  ["#7FD8FF", "#1C6FA8"],
   ["#FFB27A", "#C4562B"],
   ["#FF8FB1", "#B8326A"],
   ["#9BE7E1", "#2B8A8F"],

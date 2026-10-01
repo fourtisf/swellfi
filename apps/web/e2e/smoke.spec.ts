@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("home shows live markets, platform stats and activity", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Every trade leaves a wake." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Every trade makes waves." })).toBeVisible();
   await expect(page.locator("#v-home tbody tr.click").first()).toBeVisible();
   await expect(page.locator(".pstats b").first()).toHaveText(/\d/);
   await expect(page.locator(".act").first()).toBeVisible();

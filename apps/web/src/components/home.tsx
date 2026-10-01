@@ -73,26 +73,57 @@ function HeroCtas() {
   );
 }
 
+// Until the platform has a meaningful user base, the hero shows live Hyperliquid market stats
+// instead of near-zero platform counters.
+const PLATFORM_STATS_MIN_USERS = 1000;
+
 function PlatformStats() {
   const q = useQuery({ queryKey: ["stats"], queryFn: () => api<{ users: number; tvl: string; volume: string; trades: number }>("/stats"), refetchInterval: 30_000 });
+  const markets = useMarkets((s) => s.markets);
   const d = q.data;
+  if (d && d.users >= PLATFORM_STATS_MIN_USERS) {
+    return (
+      <div className="pstats" id="stats">
+        <div>
+          <b>{d.users.toLocaleString()}</b>
+          <span>Global users</span>
+        </div>
+        <div className="hl">
+          <b>{fUsd(+d.tvl, 0)}</b>
+          <span>Platform TVL</span>
+        </div>
+        <div>
+          <b>{fUsd(+d.volume, 0)}</b>
+          <span>Trading volume</span>
+        </div>
+        <div>
+          <b>{d.trades.toLocaleString()}</b>
+          <span>Trades placed</span>
+        </div>
+      </div>
+    );
+  }
+  const ready = markets.length > 0;
+  const vol = markets.reduce((a, m) => a + m.vol, 0);
+  const oi = markets.reduce((a, m) => a + m.oi, 0);
+  const maxLev = markets.reduce((a, m) => Math.max(a, m.maxLev), 0);
   return (
     <div className="pstats" id="stats">
       <div>
-        <b>{d ? d.users.toLocaleString() : <Skel />}</b>
-        <span>Global users</span>
+        <b>{ready ? markets.length.toLocaleString() : <Skel />}</b>
+        <span>Markets</span>
       </div>
       <div className="hl">
-        <b>{d ? fUsd(+d.tvl, 0) : <Skel w="lg" />}</b>
-        <span>Platform TVL</span>
+        <b>{ready ? fUsd(vol, 0) : <Skel w="lg" />}</b>
+        <span>24h volume</span>
       </div>
       <div>
-        <b>{d ? fUsd(+d.volume, 0) : <Skel w="lg" />}</b>
-        <span>Trading volume</span>
+        <b>{ready ? fUsd(oi, 0) : <Skel w="lg" />}</b>
+        <span>Open interest</span>
       </div>
       <div>
-        <b>{d ? d.trades.toLocaleString() : <Skel />}</b>
-        <span>Trades placed</span>
+        <b>{ready ? `${maxLev}x` : <Skel />}</b>
+        <span>Max leverage</span>
       </div>
     </div>
   );
@@ -271,7 +302,7 @@ export function HomeView() {
           Live on Hyperliquid{HL.network === "testnet" ? " · Testnet" : ""}
         </span>
         <h1>
-          Every trade leaves a <em>wake</em>.
+          Every trade makes <em>waves</em>.
         </h1>
         <p>Trade crypto, stocks and commodities with leverage. Follow the traders worth following and build a track record of your own.</p>
         <HeroCtas />

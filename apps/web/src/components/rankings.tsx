@@ -48,7 +48,7 @@ export function RankingsView() {
               <small className="dim">{t.followers.toLocaleString()} followers</small>
               <div className={`pnl ${sgn(+t.pnl)}`}>{fUsd(+t.pnl, 0)}</div>
               <span className={`chg ${sgn(t.roi)}`}>{fPct(t.roi, 1)} ROI</span>
-              <Sparkline data={t.series} width={300} height={54} color={first ? "#16C784" : null} full className="sp" />
+              <Sparkline data={t.series} width={300} height={54} color={first ? "#4DB5FF" : null} full className="sp" />
             </div>
           );
         })}

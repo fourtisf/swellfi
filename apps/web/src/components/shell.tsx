@@ -206,7 +206,7 @@ export function Header() {
           <Logo name={BRAND} />
         </Link>
         <nav className="nav" id="nav">
-          {nav("/", "Portfolio", "home")}
+          {nav("/", "Home", "home")}
           {nav("/trade", "Trade", "trade")}
           {nav("/markets", "Markets", "chart")}
           {nav("/feed", "Feed", "feed")}

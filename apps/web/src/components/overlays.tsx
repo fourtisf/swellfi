@@ -38,7 +38,7 @@ function WalletModal() {
         Funds stay in your own Hyperliquid account. {BRAND} can place trades for you but can never withdraw.
       </p>
       <button className="wopt" onClick={() => go("email")}>
-        <i style={{ background: "linear-gradient(135deg,#2EE09C,#0FA968)" }}>@</i>Continue with email{s.privy ? <span className="tag">Fastest</span> : <span className="tag dim">Needs Privy</span>}
+        <i style={{ background: "linear-gradient(135deg,#9AF1FF,#2F86F0)" }}>@</i>Continue with email{s.privy ? <span className="tag">Fastest</span> : <span className="tag dim">Needs Privy</span>}
       </button>
       <button className="wopt" onClick={() => go("wallet", "io.metamask")}>
         <i style={{ background: "#F6A04D" }}>M</i>MetaMask{tag("io.metamask")}

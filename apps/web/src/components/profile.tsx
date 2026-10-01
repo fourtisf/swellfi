@@ -112,7 +112,7 @@ export function ProfileView({ handle }: { handle: string }) {
         <div className="mut" style={{ fontSize: 12.5, marginBottom: 8 }}>
           Equity, last 60 days
         </div>
-        <Sparkline data={t.series} width={460} height={140} color="#16C784" full />
+        <Sparkline data={t.series} width={460} height={140} color="#4DB5FF" full />
       </div>
       {d.fund && (
         <div className="glow-border" style={{ padding: 18, marginTop: 14, borderRadius: 16 }}>

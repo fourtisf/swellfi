@@ -73,7 +73,7 @@ function CoinIconInner({ name, size }: { name: string; size: number }) {
   );
 }
 
-const MARBLE = ["#16C784", "#0E8F62", "#1C6FA8", "#5B45E0", "#2BB3C0", "#E07A5F", "#F2C14E", "#B8326A", "#7A4FD0", "#3FF0AE"];
+const MARBLE = ["#4DB5FF", "#1D5FD1", "#1C6FA8", "#5B45E0", "#2BB3C0", "#E07A5F", "#F2C14E", "#B8326A", "#7A4FD0", "#9AF1FF"];
 
 /** Generative "marble" avatar (deterministic per seed) unless an image is set. */
 export function Avatar({ seed, size = 34, ring, src }: { seed: string; size?: number; ring?: boolean; src?: string | null }) {
@@ -154,20 +154,43 @@ export function Sparkline({ data, width: w, height: h, color, fill = 0.32, strok
   );
 }
 
-export function Logo({ size = 32, name }: { size?: number; name: string }) {
+// Tide Coin: a disc split by one sine wave, light aqua over deep blue, with a transparent gap.
+const TIDE_WAVE = Array.from({ length: 25 }, (_, i) => {
+  const x = 8 + i * 2;
+  return `${x} ${(32 + 5.2 * Math.sin(((x - 10) / 44) * 2 * Math.PI)).toFixed(2)}`;
+}).join("L");
+
+/** The Swellfi mark on its own (no wordmark). */
+export function BrandMark({ size = 32, className }: { size?: number; className?: string }) {
+  const id = useId().replace(/:/g, "");
+  return (
+    <svg viewBox="10 10 44 44" width={size} height={size} className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={`g${id}`} gradientUnits="userSpaceOnUse" x1="12" y1="8" x2="52" y2="58">
+          <stop offset="0" stopColor="#9AF1FF" />
+          <stop offset=".6" stopColor="#3FA9FF" />
+          <stop offset="1" stopColor="#1D5FD1" />
+        </linearGradient>
+        <clipPath id={`c${id}`}>
+          <circle cx="32" cy="32" r="22" />
+        </clipPath>
+        <mask id={`m${id}`} maskUnits="userSpaceOnUse" x="10" y="10" width="44" height="44">
+          <rect x="10" y="10" width="44" height="44" fill="#fff" />
+          <path d={`M${TIDE_WAVE}`} fill="none" stroke="#000" strokeWidth="2.6" />
+        </mask>
+      </defs>
+      <g clipPath={`url(#c${id})`} mask={`url(#m${id})`}>
+        <path d={`M${TIDE_WAVE}L56 8L8 8Z`} fill={`url(#g${id})`} />
+        <path d={`M${TIDE_WAVE}L56 56L8 56Z`} fill="#1D5FD1" />
+      </g>
+    </svg>
+  );
+}
+
+export function Logo({ size = 30, name }: { size?: number; name: string }) {
   return (
     <span className="logo">
-      <svg viewBox="0 0 32 32" aria-hidden="true" style={{ width: size, height: size }}>
-        <defs>
-          <linearGradient id="tl-logo" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#2EE09C" />
-            <stop offset="1" stopColor="#0E9F62" />
-          </linearGradient>
-        </defs>
-        <rect width="32" height="32" rx="10" fill="url(#tl-logo)" />
-        <path d="M5 18.5c3.2 0 3.2-5 6.4-5s3.2 5 6.4 5 3.2-5 6.4-5 2.6 3 2.8 4" stroke="#04140C" strokeWidth="2.7" fill="none" strokeLinecap="round" />
-        <path d="M5 24c3.2 0 3.2-3 6.4-3s3.2 3 6.4 3 3.2-3 6.4-3" stroke="#04140C" strokeWidth="2" fill="none" strokeLinecap="round" opacity=".4" />
-      </svg>
+      <BrandMark size={size} />
       {name}
     </span>
   );

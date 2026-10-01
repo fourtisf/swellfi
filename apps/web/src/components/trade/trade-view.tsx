@@ -87,7 +87,7 @@ export function TradeView({ coin }: { coin: string }) {
   const pos = acct.positions.find((p) => p.coin === coin);
   const lines: ChartLine[] = pos
     ? [
-        { price: pos.entryPx, color: "#16C784", title: `Your ${pos.szi > 0 ? "long" : "short"} · ${pos.leverage.value}x` },
+        { price: pos.entryPx, color: "#4DB5FF", title: `Your ${pos.szi > 0 ? "long" : "short"} · ${pos.leverage.value}x` },
         ...(pos.liquidationPx ? [{ price: pos.liquidationPx, color: "#F5B53D", title: "Liq." }] : []),
       ]
     : [];

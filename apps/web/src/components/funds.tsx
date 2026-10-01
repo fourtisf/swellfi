@@ -47,7 +47,7 @@ export function FundsView() {
             </div>
             <div className={`ret ${sgn(f.return30d)}`}>{fPct(f.return30d, 1)}</div>
             <small className="dim">30-day return</small>
-            <Sparkline data={f.series} width={360} height={80} color="#16C784" full className="sp" />
+            <Sparkline data={f.series} width={360} height={80} color="#4DB5FF" full className="sp" />
             <div className="kvs">
               <div>
                 <small>AUM</small>
@@ -176,7 +176,7 @@ export function FundDetail({ id }: { id: string }) {
         <div className="mut" style={{ fontSize: 12.5, marginBottom: 8 }}>
           Share value, last 30 days
         </div>
-        <Sparkline data={f.series} width={460} height={140} color="#16C784" full />
+        <Sparkline data={f.series} width={460} height={140} color="#4DB5FF" full />
       </div>
       <div className="glow-border" style={{ padding: 18, marginTop: 14, borderRadius: 16 }}>
         <div className="field">

@@ -288,7 +288,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         loginMethods: ["email", "wallet"],
         appearance: {
           theme: "dark",
-          accentColor: "#16C784",
+          accentColor: "#4DB5FF",
           landingHeader: `Log in to ${BRAND}`,
           walletChainType: "ethereum-only",
           walletList: ["metamask", "detected_ethereum_wallets", "wallet_connect", "coinbase_wallet"],

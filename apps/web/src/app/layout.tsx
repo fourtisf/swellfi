@@ -15,13 +15,16 @@ export const metadata: Metadata = {
   title: { default: `${BRAND} — Trade perps. Get followed.`, template: `%s · ${BRAND}` },
   description: "Trade crypto, stocks and commodities with leverage on Hyperliquid. Follow the traders worth following and build a track record of your own.",
   applicationName: BRAND,
+  metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
+  openGraph: { type: "website", siteName: BRAND },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0B1012",
+  themeColor: "#070B14",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

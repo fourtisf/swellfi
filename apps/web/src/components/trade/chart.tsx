@@ -77,14 +77,14 @@ export function PriceChart({ coin, displayName, lines = [] }: { coin: string; di
     const el = box.current!;
     const chart = createChart(el, {
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "#0B1012" }, textColor: "#5F686B", fontFamily: "Inter, system-ui, sans-serif", fontSize: 11 },
+      layout: { background: { type: ColorType.Solid, color: "#070B14" }, textColor: "#5A6680", fontFamily: "Inter, system-ui, sans-serif", fontSize: 11 },
       grid: { vertLines: { color: "rgba(150,185,215,.04)" }, horzLines: { color: "rgba(150,185,215,.06)" } },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.22 }, minimumWidth: 74 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, tickMarkFormatter: tickLabel, rightOffset: 4 },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: "rgba(22,199,132,.45)", style: LineStyle.Dashed, labelBackgroundColor: "#1E3A4E" },
-        horzLine: { color: "rgba(22,199,132,.45)", style: LineStyle.Dashed, labelBackgroundColor: "#1E3A4E" },
+        vertLine: { color: "rgba(77,181,255,.45)", style: LineStyle.Dashed, labelBackgroundColor: "#1D3B66" },
+        horzLine: { color: "rgba(77,181,255,.45)", style: LineStyle.Dashed, labelBackgroundColor: "#1D3B66" },
       },
       localization: {
         priceFormatter: (p: number) => fPx(p),
@@ -93,8 +93,8 @@ export function PriceChart({ coin, displayName, lines = [] }: { coin: string; di
     });
     const a = chart.addAreaSeries({
       lineColor: "rgba(0,0,0,0)",
-      topColor: "rgba(22,199,132,.13)",
-      bottomColor: "rgba(22,199,132,0)",
+      topColor: "rgba(77,181,255,.16)",
+      bottomColor: "rgba(77,181,255,0)",
       priceLineVisible: false,
       lastValueVisible: false,
       crosshairMarkerVisible: false,
