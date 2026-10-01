@@ -1,0 +1,54 @@
+# External smoke test of the live site, run from GitHub's network (no VPN/proxy in the way).
+# Trigger it from the Actions tab ("Run workflow"); it also runs when this file changes.
+name: Site check
+
+on:
+  workflow_dispatch:
+  push:
+    paths: [.github/workflows/site-check.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DOMAIN: swellfi.xyz
+    steps:
+      - name: DNS
+        run: |
+          for r in 1.1.1.1 8.8.8.8; do
+            echo "== resolver $r"
+            for t in A AAAA CNAME; do printf '%-5s %s: ' "$t" "$DOMAIN"; dig +short "@$r" "$DOMAIN" "$t" | tr '\n' ' '; echo; done
+            printf 'A     www: '; dig +short "@$r" "www.$DOMAIN" A | tr '\n' ' '; echo
+          done
+          echo "== nameservers"; dig +short NS "$DOMAIN"
+
+      - name: TLS certificate
+        run: |
+          echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null \
+            | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+
+      - name: HTTPS (IPv4)
+        run: |
+          curl -4 -sS -o /tmp/home.html -w "home   %{http_code} %{content_type} %{size_download}B in %{time_total}s via %{remote_ip}\n" "https://$DOMAIN/"
+          curl -4 -sS -w "\nhealth %{http_code}\n" "https://$DOMAIN/api/health"
+          curl -4 -sS -o /dev/null -w "trade  %{http_code}\n" "https://$DOMAIN/trade/BTC"
+          grep -o '<title>[^<]*</title>' /tmp/home.html
+
+      - name: Redirects
+        run: |
+          curl -4 -sS -o /dev/null -w "http://$DOMAIN      -> %{http_code} %{redirect_url}\n" "http://$DOMAIN/"
+          curl -4 -sS -o /dev/null -w "https://www.$DOMAIN -> %{http_code} %{redirect_url}\n" "https://www.$DOMAIN/"
+
+      - name: Static assets
+        run: |
+          js=$(grep -o '/_next/static/[^"]*\.js' /tmp/home.html | head -1 || true)
+          echo "asset: $js"
+          [ -n "$js" ] && curl -4 -sS -o /dev/null -w "asset  %{http_code} %{size_download}B\n" "https://$DOMAIN$js"
+
+      - name: HTTPS (IPv6, informational)
+        continue-on-error: true
+        run: curl -6 -sS -o /dev/null -w "ipv6 %{http_code}\n" --max-time 10 "https://$DOMAIN/"
