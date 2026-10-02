@@ -10,10 +10,11 @@ import { api, ApiError, type PublicUser } from "@/lib/api";
 import { BRAND } from "@/lib/env";
 import { useWatchlist } from "@/lib/hooks";
 import { useMarkets } from "@/lib/market";
-import { discoverWallets } from "@/lib/injected";
+import { discoverWallets, type InjectedWallet } from "@/lib/injected";
 import { NAV, traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
 import { openModal, toast, useUi } from "@/lib/ui-store";
+import { matchWallets, WALLETS, walletLogo } from "@/lib/wallets";
 import { MarketSelector } from "./markets";
 import { Modal } from "./modal";
 import { MoneyModals } from "./trade/money-modals";
@@ -21,16 +22,18 @@ import { MoneyModals } from "./trade/money-modals";
 function WalletModal() {
   const s = useSession();
   const close = useUi((u) => u.closeModal);
-  const [detected, setDetected] = useState<string[]>([]);
+  const [installed, setInstalled] = useState<InjectedWallet[]>([]);
   const on = useUi((u) => u.modal === "wallet");
   useEffect(() => {
-    if (on) void discoverWallets().then((l) => setDetected(l.map((w) => w.id)));
+    if (on) void discoverWallets().then(setInstalled);
   }, [on]);
   const go = (m: "email" | "wallet", id?: string) => {
     close();
     s.login(m, id);
   };
-  const tag = (id: string) => (detected.includes(id) ? <span className="tag">Detected</span> : null);
+  const { byKey, extra } = useMemo(() => matchWallets(installed), [installed]);
+  // Installed wallets first, then the rest in catalog order.
+  const entries = useMemo(() => [...WALLETS].sort((a, b) => Number(byKey.has(b.key)) - Number(byKey.has(a.key))), [byKey]);
   return (
     <Modal name="wallet" className="glass glow-border">
       <h3>Connect a wallet</h3>
@@ -40,14 +43,46 @@ function WalletModal() {
       <button className="wopt" onClick={() => go("email")}>
         <i style={{ background: "linear-gradient(135deg,#9AF1FF,#2F86F0)" }}>@</i>Continue with email{s.privy ? <span className="tag">Fastest</span> : <span className="tag dim">Needs Privy</span>}
       </button>
-      <button className="wopt" onClick={() => go("wallet", "io.metamask")}>
-        <i style={{ background: "#F6A04D" }}>M</i>MetaMask{tag("io.metamask")}
-      </button>
-      <button className="wopt" onClick={() => go("wallet", "io.rabby")}>
-        <i style={{ background: "#8697FF" }}>R</i>Rabby{tag("io.rabby")}
-      </button>
+      <div className="wgrid">
+        {extra.map((w) => (
+          <button key={w.id} className="wtile" onClick={() => go("wallet", w.id)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {w.icon ? <img src={w.icon} alt="" /> : <i>{w.name.slice(0, 1)}</i>}
+            <span className="wn">
+              <span className="l">{w.name}</span>
+              <span className="s">{w.name}</span>
+              <small>Detected</small>
+            </span>
+          </button>
+        ))}
+        {entries.map((e) => {
+          const w = byKey.get(e.key);
+          return (
+            <button
+              key={e.key}
+              className="wtile"
+              title={w ? `Connect ${e.name}` : `${e.name} isn't installed in this browser: opens its download page`}
+              onClick={() => {
+                if (w) return go("wallet", w.id);
+                window.open(e.url, "_blank", "noopener,noreferrer");
+                toast(`${e.name} isn't installed in this browser. Opening its download page.`);
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={walletLogo(e.key)} alt="" />
+              <span className="wn">
+                <span className="l">{e.name}</span>
+                <span className="s">{e.short ?? e.name}</span>
+                {w && <small>Detected</small>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
       <button className="wopt" onClick={() => (s.privy ? go("wallet") : toast("WalletConnect needs Privy (set NEXT_PUBLIC_PRIVY_APP_ID). Use a browser wallet for now."))}>
-        <i style={{ background: "#5FB2FF" }}>W</i>WalletConnect
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={walletLogo("walletconnect")} alt="" />
+        WalletConnect<span className="tag dim">Mobile wallets</span>
       </button>
       <p className="dim" style={{ fontSize: 12, margin: "16px 0 0" }}>
         {s.inviteOnly ? `${BRAND} is invite-only for now. You'll be asked for your invite code after connecting.` : "New here? Connecting creates your account."} You&apos;ll sign a message to prove you own the wallet; it costs no gas.
