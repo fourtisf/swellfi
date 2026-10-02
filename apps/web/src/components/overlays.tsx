@@ -14,6 +14,7 @@ import { discoverWallets, type InjectedWallet } from "@/lib/injected";
 import { NAV, traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
 import { openModal, toast, useUi } from "@/lib/ui-store";
+import { WC_ID, WC_PROJECT_ID } from "@/lib/walletconnect";
 import { matchWallets, WALLETS, walletLogo } from "@/lib/wallets";
 import { MarketSelector } from "./markets";
 import { Modal } from "./modal";
@@ -35,7 +36,7 @@ function WalletModal() {
   // Installed wallets first, then the rest in catalog order.
   const entries = useMemo(() => [...WALLETS].sort((a, b) => Number(byKey.has(b.key)) - Number(byKey.has(a.key))), [byKey]);
   return (
-    <Modal name="wallet" className="glass glow-border">
+    <Modal name="wallet" className="glass glow-border wide-short">
       <h3>Connect a wallet</h3>
       <p className="mut" style={{ margin: "0 0 6px" }}>
         Funds stay in your own Hyperliquid account. {BRAND} can place trades for you but can never withdraw.
@@ -79,7 +80,10 @@ function WalletModal() {
           );
         })}
       </div>
-      <button className="wopt" onClick={() => (s.privy ? go("wallet") : toast("WalletConnect needs Privy (set NEXT_PUBLIC_PRIVY_APP_ID). Use a browser wallet for now."))}>
+      <button
+        className="wopt"
+        onClick={() => (WC_PROJECT_ID ? go("wallet", WC_ID) : s.privy ? go("wallet") : toast("WalletConnect isn't set up yet. Use a browser wallet for now.", "info"))}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={walletLogo("walletconnect")} alt="" />
         WalletConnect<span className="tag dim">Mobile wallets</span>

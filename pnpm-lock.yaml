@@ -93,6 +93,9 @@ importers:
       '@tanstack/react-query':
         specifier: 5.104.0
         version: 5.104.0(react@18.3.1)
+      '@walletconnect/ethereum-provider':
+        specifier: 2.22.4
+        version: 2.22.4(@types/react@18.3.31)(bufferutil@4.1.0)(ioredis@5.11.1)(react@18.3.1)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5)
       lightweight-charts:
         specifier: 4.2.3
         version: 4.2.3

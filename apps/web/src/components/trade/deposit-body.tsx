@@ -12,6 +12,7 @@ import { networkLogo } from "@/lib/trading/networks";
 import type { DepositQuote } from "@/lib/trading/relay";
 import { ARB, creditedBalance, errMsg, usdcBalance, useTrading, waitForCredit } from "@/lib/trading/use-trading";
 import { toast, useUi } from "@/lib/ui-store";
+import { useConfirmStep } from "../confirm-step";
 
 // Loaded only when the Deposit modal opens (see money-modals.tsx), so the token registry and
 // deposit code stay out of the bundle every page loads.
@@ -45,6 +46,7 @@ export default function DepositBody() {
   const [err, setErr] = useState("");
   const [quote, setQuote] = useState<DepositQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
+  const confirmStep = useConfirmStep();
   const busy = stage === "sign" || stage === "mining" || stage === "relaying" || stage === "crediting";
 
   useEffect(() => {
@@ -115,7 +117,20 @@ export default function DepositBody() {
   };
 
   const goDirect = async () => {
-    if (HL.network === "mainnet" && !confirm(`Deposit ${amt} USDC from Arbitrum to Hyperliquid MAINNET?`)) return;
+    if (
+      HL.network === "mainnet" &&
+      !(await confirmStep.ask({
+        title: "Confirm deposit",
+        rows: [
+          ["You send", <b key="s">{amt} USDC</b>],
+          ["From", ARB.chainName],
+          ["To", "Your Hyperliquid account"],
+        ],
+        note: `Your wallet will ask you to approve the transfer. Deposits below ${MIN_DEPOSIT_USDC} USDC are lost by the bridge.`,
+        ok: "Deposit",
+      }))
+    )
+      return;
     setStage("sign");
     // Snapshot the balance before the transfer is sent so the credit can be detected.
     const before = await creditedBalance(acct.user!).catch(() => 0);
@@ -133,8 +148,19 @@ export default function DepositBody() {
     const { quoteDeposit, executeDeposit, isRelayTimeout } = await relay();
     const q = await quoteDeposit(src, token, amt, acct.user!);
     setQuote(q);
-    const msg = `Deposit ${amt} ${token.symbol} from ${src.name} to Hyperliquid MAINNET via Relay?\n\nYou'll receive about ${q.receiveUsdc.toFixed(2)} USDC in your own Hyperliquid account${q.feesUsd != null ? ` (fees about $${q.feesUsd.toFixed(2)})` : ""}.`;
-    if (!confirm(msg)) {
+    const ok = await confirmStep.ask({
+      title: "Confirm deposit",
+      rows: [
+        ["You send", <b key="s">{amt} {token.symbol}</b>],
+        ["From", src.name],
+        ["You receive", <b key="r">≈ {q.receiveUsdc.toFixed(2)} USDC</b>],
+        ["Fees", q.feesUsd != null ? `≈ $${q.feesUsd.toFixed(2)}` : "—"],
+        ["To", "Your Hyperliquid account"],
+      ],
+      note: "Routed by Relay. Your wallet will ask you to approve, then send. The exact USDC amount can differ slightly from the quote.",
+      ok: "Deposit",
+    });
+    if (!ok) {
       setStage("idle");
       return null;
     }
@@ -184,6 +210,7 @@ export default function DepositBody() {
   const stable = token.address !== NATIVE;
   const balText = bal == null ? "—" : `${stable ? (+formatUnits(bal, token.decimals)).toFixed(2) : (+(+formatUnits(bal, token.decimals)).toFixed(6)).toString()} ${token.symbol}`;
 
+  if (confirmStep.view) return confirmStep.view;
   return (
     <>
       <h3>{multi ? "Deposit" : "Deposit USDC"}</h3>

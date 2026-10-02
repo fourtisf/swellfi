@@ -8,6 +8,7 @@ import { BRAND, HL } from "@/lib/env";
 import { useHlAccount } from "@/lib/trading/account";
 import { ARB, errMsg, useTrading } from "@/lib/trading/use-trading";
 import { toast, useUi } from "@/lib/ui-store";
+import { useConfirmStep } from "../confirm-step";
 import { Modal } from "../modal";
 
 // The deposit flow (token registry, Relay) is only loaded once the modal opens.
@@ -20,12 +21,28 @@ function WithdrawBody() {
   const [amt, setAmt] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const confirmStep = useConfirmStep();
   const avail = acct.withdrawableByDex[""] ?? 0;
   const go = async () => {
     setErr("");
     const v = validateWithdraw(amt, avail);
     if (v) return setErr(v);
-    if (HL.network === "mainnet" && !confirm(`Withdraw ${amt} USDC from Hyperliquid MAINNET to ${acct.user}?`)) return;
+    if (
+      HL.network === "mainnet" &&
+      !(await confirmStep.ask({
+        title: "Confirm withdrawal",
+        rows: [
+          ["Amount", `${(+amt).toFixed(2)} USDC`],
+          ["Hyperliquid fee", `${WITHDRAW_FEE_USDC} USDC`],
+          ["You receive", <b key="r">{(+amt - WITHDRAW_FEE_USDC).toFixed(2)} USDC</b>],
+          ["Network", ARB.chainName],
+          ["To your wallet", <code key="a">{acct.user}</code>],
+        ],
+        note: "Your wallet will ask you to sign. The USDC usually arrives within a few minutes.",
+        ok: "Withdraw",
+      }))
+    )
+      return;
     setBusy(true);
     try {
       await t.withdraw(amt);
@@ -37,6 +54,7 @@ function WithdrawBody() {
       setBusy(false);
     }
   };
+  if (confirmStep.view) return confirmStep.view;
   return (
     <>
       <h3>Withdraw USDC</h3>
@@ -84,10 +102,10 @@ function WithdrawBody() {
 export function MoneyModals() {
   return (
     <>
-      <Modal name="deposit" className="glass glow-border">
+      <Modal name="deposit" className="glass glow-border wide-short">
         <DepositBody />
       </Modal>
-      <Modal name="withdraw" className="glass glow-border">
+      <Modal name="withdraw" className="glass glow-border wide-short">
         <WithdrawBody />
       </Modal>
     </>

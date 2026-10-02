@@ -2,6 +2,7 @@
 
 import type { EIP1193Provider } from "viem";
 import { chainById } from "./trading/networks";
+import { WC_ID, walletConnect } from "./walletconnect";
 
 /** A browser wallet announced via EIP-6963 (MetaMask, Rabby, Coinbase, …) or window.ethereum. */
 export interface InjectedWallet {
@@ -42,6 +43,7 @@ export async function discoverWallets(): Promise<InjectedWallet[]> {
 
 /** Prefer the requested wallet (by rdns), else the first one available. */
 export async function pickWallet(preferred?: string): Promise<InjectedWallet | null> {
+  if (preferred === WC_ID) return walletConnect();
   const list = await discoverWallets();
   return list.find((w) => w.id === preferred) ?? list[0] ?? null;
 }

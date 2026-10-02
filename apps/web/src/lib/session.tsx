@@ -8,6 +8,7 @@ import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { api, ApiError, setTokenGetter, type Me } from "./api";
 import { BRAND, HL, PRIVY_APP_ID } from "./env";
 import { ensureChain, pickWallet, type InjectedWallet } from "./injected";
+import { disconnectWallet, requestAccounts, WC_ID } from "./walletconnect";
 import { forgetAgent } from "./trading/agent-store";
 import { chainById, ORIGIN_CHAINS } from "./trading/networks";
 import { openModal, toast } from "./ui-store";
@@ -83,6 +84,7 @@ function WalletSession({ children }: { children: ReactNode }) {
     } catch {
       /* storage blocked */
     }
+    void disconnectWallet(wallet.current);
     wallet.current = null;
     setSess(null);
     qc.removeQueries({ queryKey: ["me"] });
@@ -95,7 +97,7 @@ function WalletSession({ children }: { children: ReactNode }) {
     const saved = readStored();
     (async () => {
       if (saved) {
-        const w = await pickWallet(saved.walletId);
+        const w = await pickWallet(saved.walletId).catch(() => null);
         const accounts = w ? ((await w.provider.request({ method: "eth_accounts" }).catch(() => [])) as string[]) : [];
         if (w && accounts.map((a) => a.toLowerCase()).includes(saved.address)) {
           wallet.current = w;
@@ -119,8 +121,18 @@ function WalletSession({ children }: { children: ReactNode }) {
         toast("Wallet changed. Log in again.");
       }
     };
+    // A WalletConnect session can also be ended from the phone.
+    const onDisconnect = () => {
+      if (wallet.current?.id !== WC_ID) return;
+      clear();
+      toast("Wallet disconnected. Log in again.");
+    };
     p.on("accountsChanged", onAccounts);
-    return () => p.removeListener("accountsChanged", onAccounts);
+    p.on("disconnect", onDisconnect);
+    return () => {
+      p.removeListener("accountsChanged", onAccounts);
+      p.removeListener("disconnect", onDisconnect);
+    };
   }, [sess, clear]);
 
   const me = useQuery({
@@ -154,10 +166,15 @@ function WalletSession({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (method: "email" | "wallet", walletId?: string) => {
       if (method === "email") return toast("Email login needs Privy (set NEXT_PUBLIC_PRIVY_APP_ID). Use a browser wallet instead.", "info");
-      const w = await pickWallet(walletId);
+      let w: InjectedWallet | null;
+      try {
+        w = await pickWallet(walletId);
+      } catch (e) {
+        return toast(e instanceof Error ? e.message : String(e), "info");
+      }
       if (!w) return toast("No browser wallet found. Install MetaMask or Rabby, then try again.", "info");
       try {
-        const [address] = (await w.provider.request({ method: "eth_requestAccounts" })) as string[];
+        const [address] = await requestAccounts(w);
         if (!address) throw new Error("No account selected");
         const { message } = await api<{ message: string }>("/auth/nonce", { method: "POST", body: { address } });
         const signature = (await w.provider.request({ method: "personal_sign", params: [toHex(message), address as `0x${string}`] })) as string;

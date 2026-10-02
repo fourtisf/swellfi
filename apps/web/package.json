@@ -21,6 +21,7 @@
     "@tanstack/react-query": "5.104.0",
     "@swellfi/hl": "workspace:*",
     "@swellfi/ui": "workspace:*",
+    "@walletconnect/ethereum-provider": "2.22.4",
     "lightweight-charts": "4.2.3",
     "next": "14.2.35",
     "react": "18.3.1",

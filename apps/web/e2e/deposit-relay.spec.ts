@@ -133,8 +133,10 @@ test("deposit USDC from Base via Relay lands in the Hyperliquid account", async 
   const wallet = await installTestWallet(page, `${MOCK}/rpc`);
   await routeBaseRpc(page);
   const relay = await routeRelay(page, wallet.address);
-  const dialogs: string[] = [];
-  page.on("dialog", (d) => (dialogs.push(d.message()), d.accept()));
+  // No browser dialogs: the review step lives inside the modal.
+  page.on("dialog", (d) => {
+    throw new Error(`unexpected browser dialog: ${d.message()}`);
+  });
 
   await connect(page, wallet.address);
   const modal = await openBaseUsdc(page);
@@ -149,9 +151,14 @@ test("deposit USDC from Base via Relay lands in the Hyperliquid account", async 
 
   const before = (await mockState(wallet.address))?.usdc?.[""] ?? 0;
   await modal.getByRole("button", { name: "Deposit", exact: true }).click();
+  const review = modal.locator(".mconfirm");
+  await expect(review).toContainText("Confirm deposit");
+  await expect(review).toContainText("50 USDC");
+  await expect(review).toContainText("Base");
+  await expect(review).toContainText("≈ 49.80 USDC");
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/deposit-review.png` });
+  await review.getByRole("button", { name: "Deposit" }).click();
   await expect(modal.getByRole("button", { name: "Done" })).toBeVisible({ timeout: 45_000 });
-  expect(dialogs.at(-1)).toContain("from Base to Hyperliquid MAINNET via Relay");
-  expect(dialogs.at(-1)).toContain("about 49.80 USDC");
   await expect(modal.locator(".steps-v div.ok")).toHaveCount(4);
   await expect(modal.getByRole("link", { name: "View transaction" })).toHaveAttribute("href", /^https:\/\/basescan\.org\/tx\/0x[0-9a-f]{64}$/);
   await expect(page.locator(".toast")).toContainText("Deposit credited");
@@ -165,12 +172,16 @@ test("a route with an exact-amount approval goes through", async ({ page }, info
   const wallet = await installTestWallet(page, `${MOCK}/rpc`);
   await routeBaseRpc(page);
   await routeRelay(page, wallet.address, { approve: true });
-  page.on("dialog", (d) => d.accept());
   await connect(page, wallet.address);
   const modal = await openBaseUsdc(page);
   await modal.locator("input").fill("30");
   await expect(modal.locator(".quotebox")).toContainText("≈ 29.88 USDC");
+  // Back from the review step returns to the form without sending anything.
   await modal.getByRole("button", { name: "Deposit", exact: true }).click();
+  await modal.locator(".mconfirm").getByRole("button", { name: "Back" }).click();
+  await expect(modal.locator("input")).toHaveValue("30");
+  await modal.getByRole("button", { name: "Deposit", exact: true }).click();
+  await modal.locator(".mconfirm").getByRole("button", { name: "Deposit" }).click();
   await expect(modal.getByRole("button", { name: "Done" })).toBeVisible({ timeout: 45_000 });
   await expect(modal.locator(".err")).toHaveCount(0);
 });
@@ -203,6 +214,39 @@ test("Arbitrum USDC on mainnet still goes straight to the bridge", async ({ page
   await modal.locator(".tokrow .netbtn", { hasText: "USDT" }).click();
   await expect(modal.locator(".quotebox")).toBeVisible();
   expect(relayCalls).toBe(0);
+});
+
+test("mainnet direct deposit and withdraw review inside the modal, not in browser dialogs", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop" || process.env.E2E_NETWORK !== "mainnet", "mainnet build, desktop");
+  test.setTimeout(90_000);
+  const wallet = await installTestWallet(page, `${MOCK}/rpc`);
+  page.on("dialog", (d) => {
+    throw new Error(`unexpected browser dialog: ${d.message()}`);
+  });
+  await connect(page, wallet.address);
+  await page.locator(".tord").getByRole("button", { name: /^Deposit/ }).first().click();
+  const modal = page.locator(".modal.on");
+  await modal.locator("input").fill("100");
+  await modal.getByRole("button", { name: "Deposit", exact: true }).click();
+  const review = modal.locator(".mconfirm");
+  await expect(review).toContainText("100 USDC");
+  await expect(review).toContainText("Arbitrum One");
+  await review.getByRole("button", { name: "Deposit" }).click();
+  await expect(modal.getByRole("button", { name: "Done" })).toBeVisible({ timeout: 30_000 });
+  await modal.getByRole("button", { name: "Done" }).click();
+
+  await page.locator(".tacc").getByRole("button", { name: "Withdraw" }).click();
+  await page.locator(".modal.on input").fill("10");
+  await page.locator(".modal.on").getByRole("button", { name: "Withdraw", exact: true }).click();
+  const wr = page.locator(".modal.on .mconfirm");
+  await expect(wr).toContainText("Confirm withdrawal");
+  await expect(wr).toContainText("9.00 USDC");
+  await expect(wr).toContainText(wallet.address.toLowerCase());
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/withdraw-review.png` });
+  await wr.getByRole("button", { name: "Withdraw" }).click();
+  await expect(page.locator(".toast")).toContainText("Withdrawal of 10 USDC sent", { timeout: 20_000 });
+  const st = (await (await fetch(`${MOCK}/__mock/state`)).json())[wallet.address.toLowerCase()];
+  expect(st.withdrawals).toEqual([expect.objectContaining({ amount: 10, destination: wallet.address.toLowerCase() })]);
 });
 
 // A tampered Relay response must never reach the wallet: the guard checks the transactions themselves.

@@ -57,6 +57,7 @@ Then open http://localhost:3000.
 | `NEXT_PUBLIC_BUILDER_ADDRESS`, `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` | Builder code. `50` = 0.05%; the perps max is `100`. **Trading is disabled until the address is set.** The builder wallet needs ≥ 100 USDC perps account value |
 | `NEXT_PUBLIC_ARB_RPC_URL` | Optional Arbitrum RPC for deposits. Defaults to the public RPC (Arbitrum One / Sepolia) |
 | `NEXT_PUBLIC_RPC_URLS` | Optional JSON of RPC URLs by chain id for the other deposit networks (mainnet). Defaults to public RPCs |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional WalletConnect project id (free, cloud.reown.com) for mobile wallets via QR code. Add the site's domain to the project's allowlist |
 | `NEXT_PUBLIC_RELAY_API_URL` | Optional Relay API URL for cross-chain deposits. Defaults to `https://api.relay.link` |
 | `DATABASE_URL`, `REDIS_URL` | Postgres and Redis |
 | `API_PORT`, `API_HOST`, `API_INTERNAL_URL` | API bind address; where Next proxies `/api` in dev |
