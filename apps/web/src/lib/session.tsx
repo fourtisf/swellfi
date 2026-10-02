@@ -8,6 +8,7 @@ import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { api, ApiError, setTokenGetter, type Me } from "./api";
 import { BRAND, HL, PRIVY_APP_ID } from "./env";
 import { ensureChain, pickWallet, type InjectedWallet } from "./injected";
+import { DEPOSIT_CHAINS, chainById } from "./trading/chains";
 import { openModal, toast } from "./ui-store";
 
 export type SessionStatus = "loading" | "anon" | "needsInvite" | "ready";
@@ -182,7 +183,7 @@ function WalletSession({ children }: { children: ReactNode }) {
       const w = wallet.current;
       if (!w || !sess) throw new Error("Your wallet isn't connected. Log in again.");
       await ensureChain(w.provider, chainId);
-      const chain = chainId === arbitrum.id ? arbitrum : arbitrumSepolia;
+      const chain = chainById(chainId);
       return createWalletClient({ account: getAddress(sess.address), chain, transport: custom(w.provider) });
     },
     [sess],
@@ -250,7 +251,7 @@ function PrivySession({ children }: { children: ReactNode }) {
       if (!w) throw new Error("Your wallet isn't connected. Reconnect it and try again.");
       if (Number(w.chainId.split(":")[1]) !== chainId) await w.switchChain(chainId);
       const provider = await w.getEthereumProvider();
-      const chain = chainId === arbitrum.id ? arbitrum : arbitrumSepolia;
+      const chain = chainById(chainId);
       return createWalletClient({ account: w.address as `0x${string}`, chain, transport: custom(provider) });
     },
     [wallets, masterAddress],
@@ -295,7 +296,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         },
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
         // Deposits and user-signed Hyperliquid actions happen on Arbitrum (Sepolia on testnet).
-        supportedChains: [arbitrum, arbitrumSepolia],
+        // Arbitrum for Hyperliquid deposits and signing; the rest are Relay deposit origins.
+        supportedChains: [...DEPOSIT_CHAINS.map((d) => d.chain), arbitrumSepolia],
         defaultChain: HL.network === "mainnet" ? arbitrum : arbitrumSepolia,
       }}
     >

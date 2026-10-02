@@ -1,7 +1,7 @@
 "use client";
 
 import type { EIP1193Provider } from "viem";
-import { arbitrum, arbitrumSepolia } from "viem/chains";
+import { chainById } from "./trading/chains";
 
 /** A browser wallet announced via EIP-6963 (MetaMask, Rabby, Coinbase, …) or window.ethereum. */
 export interface InjectedWallet {
@@ -46,8 +46,6 @@ export async function pickWallet(preferred?: string): Promise<InjectedWallet | n
   return list.find((w) => w.id === preferred) ?? list[0] ?? null;
 }
 
-const CHAINS = { [arbitrum.id]: arbitrum, [arbitrumSepolia.id]: arbitrumSepolia } as const;
-
 /** Switch the wallet to `chainId`, adding the chain first if the wallet doesn't know it. */
 export async function ensureChain(provider: EIP1193Provider, chainId: number) {
   const current = Number(await provider.request({ method: "eth_chainId" }));
@@ -57,8 +55,8 @@ export async function ensureChain(provider: EIP1193Provider, chainId: number) {
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] });
   } catch (e) {
     const code = (e as { code?: number }).code;
-    const chain = CHAINS[chainId as keyof typeof CHAINS];
-    if ((code === 4902 || code === -32603) && chain) {
+    const chain = chainById(chainId);
+    if (code === 4902 || code === -32603) {
       await provider.request({
         method: "wallet_addEthereumChain",
         params: [{ chainId: hex, chainName: chain.name, nativeCurrency: chain.nativeCurrency, rpcUrls: [...chain.rpcUrls.default.http], blockExplorerUrls: chain.blockExplorers ? [chain.blockExplorers.default.url] : undefined }],

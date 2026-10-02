@@ -502,3 +502,23 @@ a.lp-chip:hover{border-color:var(--brand-line);background:var(--brand-soft)}
   .lp-cta .ctas{flex-direction:column;align-items:stretch}
 }
 @media (prefers-reduced-motion:reduce){.lp-aur,.lp-waves path,.lp-float,.lp-strip-track{animation:none!important}}
+
+/* Deposit: network + token pickers, Relay quote */
+.netgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tokrow{display:flex;gap:6px}
+.tokrow .netbtn{flex:1}
+.netbtn{display:flex;align-items:center;gap:7px;min-width:0;height:38px;padding:0 9px;border-radius:10px;border:1px solid var(--stroke2);background:rgba(255,255,255,.025);color:var(--text);font:inherit;font-size:12.5px;cursor:pointer;transition:border-color .15s,background .15s}
+.netbtn img{width:20px;height:20px;border-radius:50%;flex:none}
+.netbtn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.netbtn:hover:not(:disabled){border-color:rgba(var(--brand-rgb),.45)}
+.netbtn.net{flex-direction:column;justify-content:center;gap:5px;height:58px;padding:0 4px;font-size:11.5px}
+.netbtn.net img{width:22px;height:22px}
+.netbtn.on{border-color:var(--brand);background:rgba(var(--brand-rgb),.10)}
+.netbtn:disabled{opacity:.55;cursor:default}
+.quotebox{margin-top:10px;border:1px solid var(--stroke2);border-radius:12px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+.quotebox>div{display:flex;justify-content:space-between;gap:10px;color:var(--muted)}
+.quotebox>div b{color:var(--text);font-weight:600}
+.quotebox>div span:last-child{color:var(--text)}
+.quotebox p{margin:4px 0 0;font-size:12px;color:var(--muted);line-height:1.45}
+.quotebox a{color:inherit;text-decoration:underline}
+@media (max-width:480px){.netbtn.net{height:54px;font-size:11px}}

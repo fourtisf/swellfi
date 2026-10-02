@@ -56,6 +56,8 @@ Then open http://localhost:3000.
 | `NEXT_PUBLIC_HL_INFO_URL`, `NEXT_PUBLIC_HL_WS_URL` | Optional overrides (local mock, own node) |
 | `NEXT_PUBLIC_BUILDER_ADDRESS`, `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` | Builder code. `50` = 0.05%; the perps max is `100`. **Trading is disabled until the address is set.** The builder wallet needs ≥ 100 USDC perps account value |
 | `NEXT_PUBLIC_ARB_RPC_URL` | Optional Arbitrum RPC for deposits. Defaults to the public RPC (Arbitrum One / Sepolia) |
+| `NEXT_PUBLIC_RPC_URLS` | Optional JSON of RPC URLs by chain id for the other deposit networks (mainnet). Defaults to public RPCs |
+| `NEXT_PUBLIC_RELAY_API_URL` | Optional Relay API URL for cross-chain deposits. Defaults to `https://api.relay.link` |
 | `DATABASE_URL`, `REDIS_URL` | Postgres and Redis |
 | `API_PORT`, `API_HOST`, `API_INTERNAL_URL` | API bind address; where Next proxies `/api` in dev |
 | `INVITE_ONLY` | `true`: sign-up requires an invite code |
@@ -98,6 +100,8 @@ Then open http://localhost:3000.
 5. The TP fires.
 6. Withdraw.
 
+`e2e/deposit-relay.spec.ts` covers deposits from other networks through Relay (the Relay API and the Base RPC are mocked in the browser). It needs a mainnet build (`NEXT_PUBLIC_HL_NETWORK=mainnet`), the mock in mainnet mode (`MOCK_HL_NETWORK=mainnet`), and `E2E_NETWORK=mainnet`; otherwise it is skipped.
+
 ```bash
 pnpm mock:hl &
 NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://localhost:4100/ws \
@@ -124,6 +128,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 | Step | Signed by | What happens |
 |---|---|---|
 | Deposit | Master wallet (Privy embedded or external) | USDC `transfer` on Arbitrum to Hyperliquid's Bridge2. The modal enforces the **5 USDC minimum**, shows the tx, then polls until Hyperliquid credits it |
+| Deposit (other networks, mainnet) | Master wallet, on the origin chain | USDC, USDT or the native coin on Arbitrum, Ethereum, Base, Optimism, BNB Chain, Polygon or Avalanche, routed by [Relay](https://relay.link) into the user's own HyperCore perps USDC (Relay chain 1337). The quote is shown first and checked before signing: it must end as perps USDC on HyperCore, with the user as recipient, from the selected token |
 | Enable trading | Master wallet | `approveAgent`: a fresh agent key, generated in the browser, named `swellfi`, valid 90 days. Then `approveBuilderFee` for the configured builder at `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` |
 | Orders, cancels, leverage, close | **Agent key** (no wallet popup) | `order` with the builder object on every order; `cancel`; `updateLeverage` (cross/isolated) before an order when it changed; close = reduce-only IOC. For HIP-3 markets, collateral moves to that dex with `agentSendAsset` (same user only) |
 | Withdraw | Master wallet | `withdraw3` to the user's own address. The 1 USDC Hyperliquid fee is shown before signing |

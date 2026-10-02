@@ -9,6 +9,14 @@ nextEnv.loadEnvConfig(root, process.env.NODE_ENV !== "production", undefined, tr
 
 const api = process.env.API_INTERNAL_URL || "http://127.0.0.1:4000";
 
+function safeJson(v) {
+  try {
+    return JSON.parse(v || "{}");
+  } catch {
+    return {};
+  }
+}
+
 const hlHosts = [
   "https://api.hyperliquid.xyz",
   "wss://api.hyperliquid.xyz",
@@ -20,6 +28,17 @@ const hlHosts = [
   "https://arb1.arbitrum.io",
   "https://sepolia-rollup.arbitrum.io",
   process.env.NEXT_PUBLIC_ARB_RPC_URL,
+  // Relay (deposits from other networks/tokens) and the origin-chain RPCs it reads balances from
+  "https://api.relay.link",
+  process.env.NEXT_PUBLIC_RELAY_API_URL,
+  "https://*.publicnode.com",
+  "https://ethereum.reth.rs",
+  "https://mainnet.base.org",
+  "https://mainnet.optimism.io",
+  "https://56.rpc.thirdweb.com",
+  "https://polygon.drpc.org",
+  "https://api.avax.network",
+  ...Object.values(safeJson(process.env.NEXT_PUBLIC_RPC_URLS)),
 ].filter(Boolean);
 
 // Report-only until the Privy/WalletConnect host list is confirmed in staging (see NOTES.md).
@@ -27,7 +46,7 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://app.hyperliquid.xyz https://*.walletconnect.com https://explorer-api.walletconnect.com",
+  "img-src 'self' data: blob: https://app.hyperliquid.xyz https://assets.relay.link https://*.walletconnect.com https://explorer-api.walletconnect.com",
   "font-src 'self' data:",
   `connect-src 'self' ${hlHosts.join(" ")} https://auth.privy.io wss://relay.walletconnect.com wss://relay.walletconnect.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com https://pulse.walletconnect.org https://api.web3modal.org`,
   "frame-src https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org",

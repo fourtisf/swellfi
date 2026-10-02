@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@privy-io/react-auth": "3.46.0",
+    "@relayprotocol/relay-sdk": "8.0.2",
     "@tanstack/react-query": "5.104.0",
     "@swellfi/hl": "workspace:*",
     "@swellfi/ui": "workspace:*",

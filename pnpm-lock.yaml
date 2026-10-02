@@ -81,15 +81,18 @@ importers:
       '@privy-io/react-auth':
         specifier: 3.46.0
         version: 3.46.0(@solana-program/system@0.10.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)))(@solana-program/token@0.9.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)))(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@solana/sysvars@5.5.1(typescript@5.9.3))(@stripe/stripe-js@1.54.2)(@tanstack/query-core@5.104.0)(@tanstack/react-query@5.104.0(react@18.3.1))(@types/react@18.3.31)(bufferutil@4.1.0)(ioredis@5.11.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@4.6.5)
-      '@tanstack/react-query':
-        specifier: 5.104.0
-        version: 5.104.0(react@18.3.1)
+      '@relayprotocol/relay-sdk':
+        specifier: 8.0.2
+        version: 8.0.2(viem@2.57.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5))
       '@swellfi/hl':
         specifier: workspace:*
         version: link:../../packages/hl
       '@swellfi/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@tanstack/react-query':
+        specifier: 5.104.0
+        version: 5.104.0(react@18.3.1)
       lightweight-charts:
         specifier: 4.2.3
         version: 4.2.3
@@ -1192,6 +1195,11 @@ packages:
     resolution: {integrity: sha512-AzsuD9OfxTOZMMvTRhlN3oHBwOmFN7tDh27LzqmHt4+uOgPhJT7ZM7/kVs/8/o0WxayMUIk3hBmCFRHv1FUoag==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0-rc.1
+
+  '@relayprotocol/relay-sdk@8.0.2':
+    resolution: {integrity: sha512-HEYHQLf8zTOjwZqzsFElPyUcoP8dZdXunVR3GYzEBagNgYwFxhEe5gIqCw5cgzKUKPHS87PF/qhREbq8yLUIXA==}
+    peerDependencies:
+      viem: '>=2.26.0'
 
   '@reown/appkit-common@1.7.8':
     resolution: {integrity: sha512-ridIhc/x6JOp7KbDdwGKY4zwf8/iK8EYBl+HtWrruutSLwZyVi5P8WaZa+8iajL6LcDcDF7LoyLwMTym7SRuwQ==}
@@ -6305,6 +6313,14 @@ snapshots:
   '@react-types/shared@3.36.1(react@18.3.1)':
     dependencies:
       react: 18.3.1
+
+  '@relayprotocol/relay-sdk@8.0.2(viem@2.57.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5))':
+    dependencies:
+      axios: 1.20.0
+      viem: 2.57.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5)
+    transitivePeerDependencies:
+      - debug
+      - supports-color
 
   '@reown/appkit-common@1.7.8(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.22.4)':
     dependencies:
