@@ -20,7 +20,7 @@ test("connect wallet → deposit → enable → trade with TP → withdraw", asy
   // 1. Connect wallet (sign-in message) and redeem an invite.
   await page.goto("/trade/BTC");
   await page.getByRole("button", { name: "Log in" }).first().click();
-  await page.locator(".modal.on .wopt", { hasText: "MetaMask" }).click();
+  await page.locator(".modal.on .wtile", { hasText: "MetaMask" }).click();
   await expect(page.locator(".modal.on h3")).toHaveText(/Enter your invite/);
   await page.getByPlaceholder("Invite code").fill(INVITE);
   await page.locator(".modal.on .checkline input").check();

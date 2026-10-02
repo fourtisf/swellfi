@@ -114,10 +114,20 @@ function AccountSlot() {
           </button>
         ) : (
           s.me && (
-            <button onClick={() => (setOpen(false), router.push(traderHref(s.me!.user.handle)))}>
-              <Icon name="rank" size={16} />
-              Your profile
-            </button>
+            <>
+              <button onClick={() => (setOpen(false), openModal("deposit"))}>
+                <Icon name="wallet" size={16} />
+                Deposit
+              </button>
+              <button onClick={() => (setOpen(false), openModal("withdraw"))}>
+                <Icon name="arrow" size={16} />
+                Withdraw
+              </button>
+              <button onClick={() => (setOpen(false), router.push(traderHref(s.me!.user.handle)))}>
+                <Icon name="rank" size={16} />
+                Your profile
+              </button>
+            </>
           )
         )}
         <button
