@@ -1,7 +1,7 @@
 "use client";
 
 import type { EIP1193Provider } from "viem";
-import { chainById } from "./trading/chains";
+import { chainById } from "./trading/networks";
 
 /** A browser wallet announced via EIP-6963 (MetaMask, Rabby, Coinbase, …) or window.ethereum. */
 export interface InjectedWallet {

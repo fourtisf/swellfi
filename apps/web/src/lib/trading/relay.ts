@@ -3,7 +3,8 @@
 import { adaptViemWallet, convertViemChainToRelayChain, createClient, getClient, MAINNET_RELAY_API, type AdaptedWallet, type Execute, type ProgressData } from "@relayprotocol/relay-sdk";
 import { decodeFunctionData, erc20Abi, formatUnits, parseUnits, type WalletClient } from "viem";
 import { BRAND } from "../env";
-import { DEPOSIT_CHAINS, NATIVE, publicClientFor, rpcUrl, type DepositChain, type DepositToken } from "./chains";
+import { DEPOSIT_CHAINS, NATIVE, type DepositChain, type DepositToken } from "./chains";
+import { publicClientFor, rpcUrl } from "./networks";
 
 // Deposits from any supported chain/token into the user's own Hyperliquid perps account, routed by
 // Relay (https://relay.link). Relay's chain id for HyperCore is 1337, and perps USDC there is the

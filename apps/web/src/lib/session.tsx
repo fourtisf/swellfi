@@ -9,7 +9,7 @@ import { api, ApiError, setTokenGetter, type Me } from "./api";
 import { BRAND, HL, PRIVY_APP_ID } from "./env";
 import { ensureChain, pickWallet, type InjectedWallet } from "./injected";
 import { forgetAgent } from "./trading/agent-store";
-import { DEPOSIT_CHAINS, chainById } from "./trading/chains";
+import { chainById, ORIGIN_CHAINS } from "./trading/networks";
 import { openModal, toast } from "./ui-store";
 
 export type SessionStatus = "loading" | "anon" | "needsInvite" | "ready";
@@ -305,7 +305,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
         // Deposits and user-signed Hyperliquid actions happen on Arbitrum (Sepolia on testnet).
         // Arbitrum for Hyperliquid deposits and signing; the rest are Relay deposit origins.
-        supportedChains: [...DEPOSIT_CHAINS.map((d) => d.chain), arbitrumSepolia],
+        supportedChains: [...ORIGIN_CHAINS, arbitrumSepolia],
         defaultChain: HL.network === "mainnet" ? arbitrum : arbitrumSepolia,
       }}
     >
