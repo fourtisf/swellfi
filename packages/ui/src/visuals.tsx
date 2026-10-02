@@ -40,12 +40,15 @@ function CoinIconInner({ name, size }: { name: string; size: number }) {
   const [idx, setIdx] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const src = sources[idx];
-  // A slow source shouldn't leave a monogram on screen: move on after 2.5 s.
+  // A slow remote source shouldn't leave a monogram on screen: move on after 2.5 s. Bundled
+  // logos are exempt: they're same-origin and tiny, and with lazy loading an off-screen one
+  // hasn't even started yet, so the timer would skip it before it could load.
+  const isLocal = src?.startsWith(`${bundledBase}/`) ?? false;
   useEffect(() => {
-    if (loaded || idx >= sources.length - 1) return;
+    if (loaded || isLocal || idx >= sources.length - 1) return;
     const t = setTimeout(() => setIdx((i) => (i === idx ? i + 1 : i)), 2500);
     return () => clearTimeout(t);
-  }, [idx, loaded, sources.length]);
+  }, [idx, loaded, isLocal, sources.length]);
   return (
     <span
       className={`ci${loaded ? " has-img" : ""}`}
