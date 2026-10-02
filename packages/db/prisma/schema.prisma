@@ -41,6 +41,16 @@ model User {
   followers   Follow[]       @relation("following")
   following   Follow[]       @relation("follower")
   managedFund Fund[]
+  avatar      Avatar?
+}
+
+/// Profile picture uploaded by the user (small WebP/PNG/JPEG, served from /api/avatars/:userId).
+model Avatar {
+  userId    String   @id
+  data      Bytes
+  mime      String
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model WaitlistEntry {

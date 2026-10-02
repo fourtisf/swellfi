@@ -196,7 +196,7 @@ export function FeedView() {
           </div>
           <div className="glass compose" style={{ marginBottom: 16 }}>
             <div className="r">
-              <Avatar seed={seed} size={42} />
+              <Avatar seed={seed} size={42} src={s.me?.user.avatarUrl} />
               <textarea placeholder="What are you trading? Your latest open position gets attached automatically." />
             </div>
             <div className="bar2">

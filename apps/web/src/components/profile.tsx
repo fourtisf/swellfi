@@ -6,7 +6,9 @@ import Link from "next/link";
 import { api, ApiError, type Fund, type PublicUser, type Summary } from "@/lib/api";
 import { fundHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
-import { toast } from "@/lib/ui-store";
+import { openModal, toast } from "@/lib/ui-store";
+import { AccountHistory } from "./account-history";
+import { EditProfileModal } from "./profile-edit";
 import { FollowButton } from "./social";
 
 interface Profile {
@@ -65,12 +67,18 @@ export function ProfileView({ handle }: { handle: string }) {
         </div>
       </div>
       {d.user.bio && (
-        <p className="mut" style={{ margin: "8px 0 16px" }}>
+        <p className="mut" style={{ margin: "8px 0 16px", whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
           {d.user.bio}
         </p>
       )}
       <div style={{ display: "flex", gap: 10 }}>
         {!me && <FollowButton following={d.isFollowing} big />}
+        {me && (
+          <button className="btn btn-brand" onClick={() => openModal("profile")}>
+            <Icon name="pen" size={16} />
+            Edit profile
+          </button>
+        )}
         <button
           className="btn btn-ghost"
           onClick={() => {
@@ -114,6 +122,8 @@ export function ProfileView({ handle }: { handle: string }) {
         </div>
         <Sparkline data={t.series} width={460} height={140} color="#4DB5FF" full />
       </div>
+      {me && <AccountHistory user={d.user.address} />}
+      {me && <EditProfileModal />}
       {d.fund && (
         <div className="glow-border" style={{ padding: 18, marginTop: 14, borderRadius: 16 }}>
           <div className="mut" style={{ fontSize: 12.5 }}>

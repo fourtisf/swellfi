@@ -11,6 +11,7 @@ import { errorHandler, forbidden, unauthorized } from "./lib/http";
 import { loadTiers, type Tier } from "./lib/rewards";
 import { accountRoutes } from "./routes/account";
 import { adminRoutes } from "./routes/admin";
+import { profileRoutes } from "./routes/profile";
 import { authRoutes } from "./routes/auth";
 import { withWalletSessions } from "./lib/wallet-auth";
 import { publicRoutes } from "./routes/public";
@@ -107,6 +108,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       await publicRoutes(api, ctx);
       await socialRoutes(api, ctx);
       await accountRoutes(api, ctx);
+      await profileRoutes(api, ctx);
       await adminRoutes(api, ctx);
     },
     { prefix: "/api" },

@@ -83,7 +83,7 @@ const events = []; // { user, channel } for WS pushes
 
 function acct(user) {
   const u = user.toLowerCase();
-  if (!accounts.has(u)) accounts.set(u, { user: u, usdc: { "": 0, xyz: 0 }, positions: new Map(), orders: [], fills: [], history: [], agents: [], builders: new Map(), leverage: new Map(), withdrawals: [] });
+  if (!accounts.has(u)) accounts.set(u, { user: u, usdc: { "": 0, xyz: 0 }, positions: new Map(), orders: [], fills: [], history: [], agents: [], builders: new Map(), leverage: new Map(), withdrawals: [], ledger: [] });
   return accounts.get(u);
 }
 
@@ -317,6 +317,7 @@ async function exchange(body) {
       if (!(amt > 1) || amt > w) return err("Insufficient balance for withdrawal");
       a.usdc[""] -= amt;
       a.withdrawals.push({ amount: amt, destination: action.destination, time: Date.now() });
+      a.ledger.push({ time: Date.now(), hash: keccak256(toHex(`w${Date.now()}${Math.random()}`)), delta: { type: "withdraw", usdc: String(amt), nonce: Date.now(), fee: "1.0" } });
       return ok();
     }
     case "agentSendAsset":
@@ -447,6 +448,8 @@ function info(b) {
       return acct(b.user).fills;
     case "userFunding":
       return [];
+    case "userNonFundingLedgerUpdates":
+      return acct(b.user).ledger.filter((l) => l.time >= (b.startTime ?? 0));
     case "extraAgents":
       return acct(b.user).agents.map((x) => ({ address: x.address, name: x.name, validUntil: x.validUntil }));
     case "maxBuilderFee":
@@ -512,6 +515,7 @@ function rpc({ method, params = [] }) {
 function credit(user, amount) {
   const a = acct(user);
   a.usdc[""] += amount;
+  a.ledger.push({ time: Date.now(), hash: keccak256(toHex(`d${Date.now()}${Math.random()}`)), delta: { type: "deposit", usdc: String(amount) } });
   push(a.user, "userFills");
 }
 

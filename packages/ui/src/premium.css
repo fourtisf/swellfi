@@ -547,3 +547,32 @@ a.lp-chip:hover{border-color:var(--brand-line);background:var(--brand-soft)}
 .mconfirm .note{font-size:12.5px;color:var(--muted);margin:10px 0 0;line-height:1.45}
 .mconfirm .row2{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:16px}
 .mconfirm .row2 .btn{height:46px}
+
+/* Edit profile */
+.pedit-pic{display:flex;align-items:center;gap:16px;margin:4px 0 16px}
+.pedit-pic>div{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pedit-pic small{flex-basis:100%;font-size:12px}
+.pedit-pic .btn{height:36px;padding:0 14px}
+.pedit-bio{width:100%;min-height:76px;resize:vertical;padding:10px 12px;line-height:1.45;font:inherit;font-size:14px}
+.pedit-field{margin-bottom:12px}
+/* Deposit & withdrawal history (own profile) */
+.hist{margin-top:14px}
+.hist-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.hist-head b{font-size:14.5px}
+.hist-head small{font-size:12px}
+.hist ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hist li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--stroke)}
+.hist li:first-child{border-top:0}
+.hico{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;background:rgba(255,255,255,.05);color:var(--muted)}
+.hico.in{background:rgba(22,199,132,.12);color:var(--long)}
+.hico.out{background:rgba(234,57,67,.1);color:var(--short)}
+.hico.out svg{transform:rotate(-45deg)}
+.hmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.hmain b{font-size:14px;font-weight:600}
+.hmain small{font-size:12px;color:var(--muted)}
+.hmain .hpend{color:#F5B53D}
+.hmain .hpend a{color:inherit;text-decoration:underline}
+.hamt{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;flex:none}
+.hamt b{font-size:14px;font-variant-numeric:tabular-nums}
+.hamt small,.hamt a{font-size:11.5px}
+.hamt a:hover{color:var(--text)}

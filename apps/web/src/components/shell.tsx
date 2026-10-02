@@ -104,7 +104,7 @@ function AccountSlot() {
             {addr.slice(0, 6)}…{addr.slice(-4)}
           </span>
         </span>
-        <Avatar seed={addr.slice(2)} size={32} />
+        <Avatar seed={addr.slice(2)} size={32} src={s.me?.user.avatarUrl} />
       </button>
       <div className={`menu glass${open ? " on" : ""}`} style={{ right: 0, left: "auto" }}>
         {s.status === "needsInvite" ? (
