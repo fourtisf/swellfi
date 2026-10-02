@@ -33,7 +33,9 @@ export function sameString(a: string, b: string): boolean {
 
 /** Only same-site paths, so ?next= can't redirect off the site. */
 export function safeNext(v: unknown): string {
-  if (typeof v !== "string" || !v.startsWith("/") || v.startsWith("//") || v.startsWith("/\\") || v.startsWith("/access")) return "/";
+  // Browsers drop tabs/newlines and read a backslash as "/" in URLs, so "/<TAB>/evil.com" becomes
+  // "//evil.com". Allow only a plain same-origin path: no control characters, spaces or backslashes.
+  if (typeof v !== "string" || !/^\/(?![/\\])[^\x00-\x20\x7f\\]*$/.test(v) || v.startsWith("/access")) return "/";
   return v;
 }
 

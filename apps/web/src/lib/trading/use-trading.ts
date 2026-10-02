@@ -10,6 +10,7 @@ import {
   builderMaxFeeRate,
   ERC20_ABI,
   masterExchange,
+  MIN_DEPOSIT_USDC,
   summarizeStatuses,
   toUsdcUnits,
   type AbstractWallet,
@@ -105,6 +106,9 @@ export function useTrading(acct: HlAccount) {
   /** USDC on Arbitrum → Bridge2. Resolves once the transfer is mined; credit is polled by the caller. */
   const deposit = useCallback(
     async (amount: string, onTx?: (hash: string) => void) => {
+      // Bridge2 keeps anything under the minimum: never send it, whatever the caller checked.
+      const units = toUsdcUnits(amount);
+      if (units < BigInt(MIN_DEPOSIT_USDC) * 1_000_000n) throw new Error(`Minimum deposit is ${MIN_DEPOSIT_USDC} USDC`);
       const { wallet } = await master();
       const hash = await wallet.writeContract({
         account: wallet.account!,
@@ -112,7 +116,7 @@ export function useTrading(acct: HlAccount) {
         address: ARB.usdc,
         abi: ERC20_ABI,
         functionName: "transfer",
-        args: [ARB.bridge, toUsdcUnits(amount)],
+        args: [ARB.bridge, units],
       });
       onTx?.(hash);
       const receipt = await arbPublic.waitForTransactionReceipt({ hash });
@@ -125,8 +129,11 @@ export function useTrading(acct: HlAccount) {
   const withdraw = useCallback(
     async (amount: string) => {
       if (!user) throw new Error("Sign in first");
-      const { ex } = await master();
-      await ex.withdraw3({ destination: user, amount });
+      const { wallet, ex } = await master();
+      // Pay out to the signing wallet itself, never to an address taken from a server response.
+      const signer = wallet.account?.address;
+      if (!signer || signer.toLowerCase() !== user.toLowerCase()) throw new Error("Your wallet doesn't match this account. Log in again.");
+      await ex.withdraw3({ destination: signer, amount });
       await refresh();
     },
     [user, master, refresh],

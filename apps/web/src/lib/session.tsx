@@ -8,6 +8,7 @@ import { arbitrum, arbitrumSepolia } from "viem/chains";
 import { api, ApiError, setTokenGetter, type Me } from "./api";
 import { BRAND, HL, PRIVY_APP_ID } from "./env";
 import { ensureChain, pickWallet, type InjectedWallet } from "./injected";
+import { forgetAgent } from "./trading/agent-store";
 import { DEPOSIT_CHAINS, chainById } from "./trading/chains";
 import { openModal, toast } from "./ui-store";
 
@@ -139,7 +140,8 @@ function WalletSession({ children }: { children: ReactNode }) {
 
   let status: SessionStatus = "loading";
   if (booted && !sess) status = "anon";
-  else if (sess && me.isSuccess) status = me.data ? "ready" : "needsInvite";
+  // The account the API returns must be the wallet that signed in; anything else is never trusted.
+  else if (sess && me.isSuccess) status = !me.data ? "needsInvite" : me.data.user.address?.toLowerCase() === sess.address ? "ready" : "anon";
   else if (sess && me.isError) status = "anon";
 
   useEffect(() => {
@@ -159,7 +161,7 @@ function WalletSession({ children }: { children: ReactNode }) {
         if (!address) throw new Error("No account selected");
         const { message } = await api<{ message: string }>("/auth/nonce", { method: "POST", body: { address } });
         const signature = (await w.provider.request({ method: "personal_sign", params: [toHex(message), address as `0x${string}`] })) as string;
-        const r = await api<{ token: string; expiresAt: number }>("/auth/wallet", { method: "POST", body: { address, signature } });
+        const r = await api<{ token: string; expiresAt: number }>("/auth/wallet", { method: "POST", body: { address, signature, message } });
         const next: StoredWalletSession = { token: r.token, expiresAt: r.expiresAt, address: address.toLowerCase(), walletId: w.id };
         try {
           localStorage.setItem(WALLET_KEY, JSON.stringify(next));
@@ -198,7 +200,11 @@ function WalletSession({ children }: { children: ReactNode }) {
       walletAddress: sess?.address ?? null,
       inviteOnly,
       login: (m, id) => void login(m, id),
-      logout: async () => clear(),
+      logout: async () => {
+        // Logging out also disables trading on this device (the next login re-enables it).
+        if (sess) await forgetAgent(HL.network, sess.address).catch(() => {});
+        clear();
+      },
       getMasterWallet,
     }),
     [status, me.data, sess, inviteOnly, login, clear, getMasterWallet],
@@ -268,6 +274,8 @@ function PrivySession({ children }: { children: ReactNode }) {
       getMasterWallet,
       login: (method) => login({ loginMethods: method === "email" ? ["email"] : ["wallet"] }),
       logout: async () => {
+        const addr = me.data?.user.address;
+        if (addr) await forgetAgent(HL.network, addr).catch(() => {});
         await logout();
         qc.removeQueries({ queryKey: ["me"] });
         qc.removeQueries({ queryKey: ["watchlist"] });

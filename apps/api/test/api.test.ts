@@ -107,6 +107,9 @@ describe("waitlist + admin", () => {
     expect((await join({ email: "not-an-email" })).statusCode).toBe(400);
     const entry = await t.prisma.waitlistEntry.findUnique({ where: { email: "new@example.com" } });
     expect(entry?.xHandle).toBe("newbie");
+    // Anyone can submit any email, so an existing entry is never changed.
+    await join({ email: "new@example.com", xHandle: "hijack" });
+    expect((await t.prisma.waitlistEntry.findUnique({ where: { email: "new@example.com" } }))?.xHandle).toBe("newbie");
 
     expect((await t.app.inject({ url: "/api/admin/waitlist", headers: bearer("alice") })).statusCode).toBe(403);
 
@@ -197,5 +200,38 @@ describe("wallet sign-in", () => {
     // tampered token
     const forged = token.slice(0, -2) + (token.endsWith("AA") ? "BB" : "AA");
     expect((await t.app.inject({ url: "/api/me", headers: { authorization: `Bearer ${forged}` } })).statusCode).toBe(401);
+  });
+});
+
+describe("client IP", () => {
+  it("rate limits by the real client IP, whatever X-Forwarded-For the client sends", async () => {
+    // Behind nginx (a loopback peer): only the hop nginx appended counts, not the client's own.
+    const viaProxy = (i: number) => t.app.inject({ method: "POST", url: "/api/waitlist", headers: { "x-forwarded-for": `6.6.6.${i}, 9.9.9.9` }, payload: { email: `p${i}@example.com` } });
+    const codes: number[] = [];
+    for (let i = 0; i < 6; i++) codes.push((await viaProxy(i)).statusCode);
+    expect(codes).toEqual([200, 200, 200, 200, 200, 429]);
+    // A peer that isn't the local proxy can't choose its IP at all.
+    const direct = await t.app.inject({ remoteAddress: "8.8.8.8", method: "POST", url: "/api/waitlist", headers: { "x-forwarded-for": "9.9.9.9" }, payload: { email: "direct@example.com" } });
+    expect(direct.statusCode).toBe(200);
+  });
+});
+
+describe("wallet sign-in nonces", () => {
+  it("can't be cancelled by someone else requesting a nonce or sending a bad signature", async () => {
+    const { privateKeyToAccount, generatePrivateKey } = await import("viem/accounts");
+    const acc = privateKeyToAccount(generatePrivateKey());
+    const other = privateKeyToAccount(generatePrivateKey());
+    const nonce = async () => (await t.app.inject({ remoteAddress: "10.7.7.7", method: "POST", url: "/api/auth/nonce", payload: { address: acc.address } })).json().message as string;
+    const signIn = (payload: object) => t.app.inject({ remoteAddress: "10.7.7.7", method: "POST", url: "/api/auth/wallet", payload: { address: acc.address, ...payload } });
+    const message = await nonce();
+    await nonce(); // a stranger asks for another message for the same address
+    expect((await signIn({ message, signature: await other.signMessage({ message }) })).json().error).toBe("BAD_SIGNATURE");
+    const ok = await signIn({ message, signature: await acc.signMessage({ message }) });
+    expect(ok.statusCode).toBe(200);
+    // single use
+    expect((await signIn({ message, signature: await acc.signMessage({ message }) })).json().error).toBe("NONCE_EXPIRED");
+    // a message the server never issued is refused even if correctly signed
+    const fake = message.replace(/Nonce: [0-9a-f]{24}/, `Nonce: ${"0".repeat(24)}`);
+    expect((await signIn({ message: fake, signature: await acc.signMessage({ message: fake }) })).json().error).toBe("NONCE_EXPIRED");
   });
 });

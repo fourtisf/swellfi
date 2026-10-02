@@ -49,7 +49,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const auth = withWalletSessions(deps.auth, env.SESSION_SECRET);
   const app = Fastify({
     logger: deps.logger ?? (env.NODE_ENV === "development" ? { transport: { target: "pino-pretty" } } : env.NODE_ENV !== "test"),
-    trustProxy: env.TRUST_PROXY,
+    // Only the local reverse proxy (nginx on this host) may set the client IP. Trusting every hop
+    // would let a client pick its own IP with X-Forwarded-For and dodge every rate limit.
+    trustProxy: env.TRUST_PROXY ? "loopback" : false,
     bodyLimit: 64 * 1024,
   });
 

@@ -87,7 +87,7 @@ else
     || sudo -u postgres psql -qc "CREATE DATABASE $APP_USER OWNER $APP_USER;"
 
   # Invite codes in the repo are public, so production gets its own.
-  CODES="SWELL-$(openssl rand -hex 3 | tr a-f A-F),SWELL-$(openssl rand -hex 3 | tr a-f A-F),SWELL-$(openssl rand -hex 3 | tr a-f A-F)"
+  CODES="SWELL-$(openssl rand -hex 6 | tr a-f A-F),SWELL-$(openssl rand -hex 6 | tr a-f A-F),SWELL-$(openssl rand -hex 6 | tr a-f A-F)"
 
   step "Production .env"
   sed \

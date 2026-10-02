@@ -112,7 +112,8 @@ export async function accountRoutes(app: FastifyInstance, ctx: AppContext) {
       .parse(req.body);
     await prisma.waitlistEntry.upsert({
       where: { email: body.email },
-      update: body.xHandle ? { xHandle: body.xHandle } : {},
+      // Existing entries are never changed: anyone can submit any email.
+      update: {},
       create: { email: body.email, xHandle: body.xHandle || null },
     });
     // Same answer whether or not the email was already on the list.

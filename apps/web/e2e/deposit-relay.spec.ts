@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { encodeFunctionData, erc20Abi, maxUint256 } from "viem";
 import { installTestWallet } from "./wallet-fixture";
 
 // Deposits from other networks/tokens, routed by Relay. Needs a MAINNET build of the web app
@@ -36,7 +37,7 @@ interface RelayMock {
 }
 
 /** Relay API: /quote/v2, /intents/status/v3 and the tx index calls. */
-async function routeRelay(page: Page, user: string, opts: { recipient?: string } = {}) {
+async function routeRelay(page: Page, user: string, opts: { recipient?: string; items?: (q: { amount: string }) => Record<string, unknown>[]; approve?: boolean } = {}) {
   const m: RelayMock = { quotes: [], statusCalls: 0 };
   let credited = false;
   await page.route(
@@ -53,13 +54,25 @@ async function routeRelay(page: Page, user: string, opts: { recipient?: string }
         const out = ((units * 996n) / 1000n) * 100n; // 0.4% fees, 6 → 8 decimals
         return json(200, {
           steps: [
+            ...(opts.approve
+              ? [
+                  {
+                    id: "approve",
+                    action: "Confirm transaction in your wallet",
+                    description: "Approve USDC",
+                    kind: "transaction",
+                    requestId: "0xfeed",
+                    items: [{ status: "incomplete", data: { from: user, to: BASE_USDC, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [RELAY_RECEIVER, BigInt(q.amount)] }), value: "0", chainId: 8453 } }],
+                  },
+                ]
+              : []),
             {
               id: "deposit",
               action: "Confirm transaction in your wallet",
               description: "Depositing funds to the relayer",
               kind: "transaction",
               requestId: "0xfeed",
-              items: [{ status: "incomplete", data: { from: user, to: RELAY_RECEIVER, data: "0xdeadbeef", value: "0", chainId: 8453 }, check: { endpoint: "/intents/status?requestId=0xfeed", method: "GET" } }],
+              items: opts.items?.(q) ?? [{ status: "incomplete", data: { from: user, to: RELAY_RECEIVER, data: "0xdeadbeef", value: "0", chainId: 8453 }, check: { endpoint: "/intents/status?requestId=0xfeed", method: "GET" } }],
             },
           ],
           fees: { gas: { amountUsd: "0.01" }, relayer: { amountUsd: (Number(units) * 0.004e-6 - 0.01).toFixed(4) }, app: { amountUsd: "0" } },
@@ -105,7 +118,7 @@ async function connect(page: Page, address: string) {
 }
 
 async function openBaseUsdc(page: Page) {
-  await page.locator(".tord").getByRole("button", { name: /^Deposit/ }).click();
+  await page.locator(".tord").getByRole("button", { name: /^Deposit/ }).first().click();
   const modal = page.locator(".modal.on");
   await expect(modal.locator("h3")).toHaveText("Deposit");
   await modal.locator(".netbtn", { hasText: "Base" }).click();
@@ -146,6 +159,22 @@ test("deposit USDC from Base via Relay lands in the Hyperliquid account", async 
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/deposit-relay.png` });
 });
 
+test("a route with an exact-amount approval goes through", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop" || process.env.E2E_NETWORK !== "mainnet", "mainnet build, desktop");
+  test.setTimeout(90_000);
+  const wallet = await installTestWallet(page, `${MOCK}/rpc`);
+  await routeBaseRpc(page);
+  await routeRelay(page, wallet.address, { approve: true });
+  page.on("dialog", (d) => d.accept());
+  await connect(page, wallet.address);
+  const modal = await openBaseUsdc(page);
+  await modal.locator("input").fill("30");
+  await expect(modal.locator(".quotebox")).toContainText("≈ 29.88 USDC");
+  await modal.getByRole("button", { name: "Deposit", exact: true }).click();
+  await expect(modal.getByRole("button", { name: "Done" })).toBeVisible({ timeout: 45_000 });
+  await expect(modal.locator(".err")).toHaveCount(0);
+});
+
 test("a Relay quote paying someone else is refused", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop" || process.env.E2E_NETWORK !== "mainnet", "mainnet build, desktop");
   const wallet = await installTestWallet(page, `${MOCK}/rpc`);
@@ -164,7 +193,7 @@ test("Arbitrum USDC on mainnet still goes straight to the bridge", async ({ page
   let relayCalls = 0;
   await page.route((u) => u.hostname === "api.relay.link", (r) => (relayCalls++, r.abort()));
   await connect(page, wallet.address);
-  await page.locator(".tord").getByRole("button", { name: /^Deposit/ }).click();
+  await page.locator(".tord").getByRole("button", { name: /^Deposit/ }).first().click();
   const modal = page.locator(".modal.on");
   await expect(modal.locator(".netgrid .netbtn.on")).toContainText("Arbitrum");
   await expect(modal).toContainText("On Arbitrum One: 1000.00 USDC");
@@ -175,3 +204,29 @@ test("Arbitrum USDC on mainnet still goes straight to the bridge", async ({ page
   await expect(modal.locator(".quotebox")).toBeVisible();
   expect(relayCalls).toBe(0);
 });
+
+// A tampered Relay response must never reach the wallet: the guard checks the transactions themselves.
+const ATTACKER = "0x000000000000000000000000000000000000bad1";
+const BASE_USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
+const tx = (user: string, to: string, data: `0x${string}`, value = "0") => ({ status: "incomplete", data: { from: user, to, data, value, chainId: 8453 }, check: { endpoint: "/intents/status?requestId=0xfeed", method: "GET" } });
+const tampered: [string, (user: string) => (q: { amount: string }) => Record<string, unknown>[], string][] = [
+  ["unlimited approval", (u) => () => [tx(u, BASE_USDC, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [ATTACKER, maxUint256] }))], "approves more than your amount"],
+  ["transfer of another token", (u) => () => [tx(u, BASE_USDT, encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [ATTACKER, 1_000_000_000n] }))], "touches another token"],
+  ["transfer above the amount", (u) => (q) => [tx(u, BASE_USDC, encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [ATTACKER, BigInt(q.amount) + 1n] }))], "sends more than your amount"],
+  ["native coin on a USDC deposit", (u) => () => [tx(u, RELAY_RECEIVER, "0x", "1000000000000000000")], "sends native coin"],
+  ["another network", (u) => () => [{ ...tx(u, RELAY_RECEIVER, "0x"), data: { from: u, to: RELAY_RECEIVER, data: "0x", value: "0", chainId: 1 } }], "wrong network"],
+];
+for (const [name, items, why] of tampered) {
+  test(`blocks a tampered Relay route: ${name}`, async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop" || process.env.E2E_NETWORK !== "mainnet", "mainnet build, desktop");
+    const wallet = await installTestWallet(page, `${MOCK}/rpc`);
+    await routeBaseRpc(page);
+    await routeRelay(page, wallet.address, { items: items(wallet.address) });
+    await connect(page, wallet.address);
+    const modal = await openBaseUsdc(page);
+    await modal.locator("input").fill("20");
+    await expect(modal.locator(".err")).toContainText(why);
+    await expect(modal.locator(".err")).toContainText("Nothing was signed");
+    await expect(modal.getByRole("button", { name: "Deposit", exact: true })).toBeDisabled();
+  });
+}

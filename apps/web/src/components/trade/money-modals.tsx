@@ -155,6 +155,7 @@ function DepositBody() {
 
   const go = async () => {
     setErr("");
+    if (direct && bal == null) return setErr("Still loading your balance. Try again in a moment.");
     if (invalid) return setErr(invalid);
     if (!direct && !(Number(amt) > 0)) return setErr("Enter an amount");
     try {
