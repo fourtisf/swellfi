@@ -187,6 +187,8 @@ function fill(a, o, px, crossed) {
     pos.entryPx = pos.szi === 0 ? px : (pos.entryPx * Math.abs(pos.szi) + px * Math.abs(take)) / (Math.abs(pos.szi) + Math.abs(take));
     pos.szi += take;
   }
+  // Sizes are decimal lots on Hyperliquid: drop float residue (0.01037 - 0.00518 - 0.00519 != 0).
+  pos.szi = +pos.szi.toFixed(10);
   const lv = a.leverage.get(o.coin);
   if (lv) Object.assign(pos, { lev: lv.lev, cross: lv.cross });
   a.positions.set(o.coin, pos);
