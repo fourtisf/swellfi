@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { api, type ActivityItem, type PublicUser } from "@/lib/api";
+import { api, userName, type ActivityItem, type PublicUser } from "@/lib/api";
 import { fundHref, traderHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
 import { openModal, toast } from "@/lib/ui-store";
@@ -64,7 +64,13 @@ export function FollowButton({ userId, following, className = "follow", big }: {
 export function ActivityRow({ a, now, fresh }: { a: ActivityItem; now: number; fresh?: boolean }) {
   const router = useRouter();
   const d = a.data;
-  const n = <b>{a.user.handle}</b>;
+  const tag = a.kind === "whale" ? " 🐋" : a.user.kind === "top" ? " · Top trader" : "";
+  const n = (
+    <b>
+      {userName(a.user)}
+      {tag && <span className="dim">{tag}</span>}
+    </b>
+  );
   let tx: ReactNode = null;
   let sub: ReactNode = null;
   if (a.kind === "verify") {
@@ -95,6 +101,14 @@ export function ActivityRow({ a, now, fresh }: { a: ActivityItem; now: number; f
       </>
     );
     sub = `${fPct(d.roi30d ?? 0, 1)} 30-day ROI`;
+  } else if (a.kind === "whale") {
+    const big = (d.size ?? 0) >= 1e6 ? `$${((d.size ?? 0) / 1e6).toFixed(2)}M` : `$${Math.round((d.size ?? 0) / 1e3)}K`;
+    tx = (
+      <>
+        {n} {d.side === "buy" ? "bought" : "sold"} <b className={d.side === "buy" ? "up" : "dn"}>{big}</b> of <b>{displayName(d.coin ?? "")}</b>
+      </>
+    );
+    sub = `Hyperliquid market ${d.side === "buy" ? "buy" : "sell"} at ${fPx(d.px)}`;
   } else if (a.kind === "open") {
     tx = (
       <>

@@ -6,7 +6,7 @@ import { ago, Avatar, CoinIcon, Empty, fPx, fUsd, Icon } from "@swellfi/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { api, type ActivityItem, type NewsItem, type PublicUser } from "@/lib/api";
+import { api, userName, type ActivityItem, type NewsItem, type PublicUser } from "@/lib/api";
 import { BRAND } from "@/lib/env";
 import { useNow } from "@/lib/hooks";
 import { useMarkets } from "@/lib/market";
@@ -20,6 +20,32 @@ import { useOrderForm } from "./trade/order-store";
 type Scope = "global" | "following";
 type Kind = "trades" | "open" | "close";
 const KIND_LABEL: Record<Kind, string> = { trades: "All", open: "Opens", close: "Closes" };
+type Source = "all" | "swellfi" | "whales" | "top";
+const SOURCE_LABEL: Record<Source, string> = { all: "All", swellfi: BRAND, whales: "Whales", top: "Top traders" };
+const SOURCE_EMPTY: Record<Source, string> = {
+  all: `Trades by ${BRAND} traders, Hyperliquid whales and top traders show up here.`,
+  swellfi: `Trades placed by ${BRAND} traders show up here within a minute.`,
+  whales: "Large market orders on Hyperliquid, live, from traders who aren't on Swellfi.",
+  top: "Bigger trades of the most profitable traders on Hyperliquid's leaderboard.",
+};
+
+/** Who's behind an event that isn't a Swellfi member's. */
+function SourceTag({ a }: { a: ActivityItem }) {
+  if (a.kind === "whale")
+    return (
+      <span className="afi-tag whale" title="A large order on Hyperliquid, by a trader who isn't on Swellfi">
+        🐋 Whale
+      </span>
+    );
+  if (a.user.kind === "top")
+    return (
+      <span className="afi-tag top" title="A top trader on Hyperliquid's leaderboard (not on Swellfi)">
+        <Icon name="rank" size={11} />
+        Top trader
+      </span>
+    );
+  return null;
+}
 
 const fCompact = (v: number) => (Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : Math.abs(v) >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : fUsd(v, 2));
 const signed = (v: number) => `${v >= 0 ? "+" : "−"}${fUsd(Math.abs(v), Math.abs(v) >= 100 ? 0 : 2)}`;
@@ -65,9 +91,13 @@ function shareText(a: ActivityItem) {
   const d = a.data;
   const coin = displayName(d.coin ?? "");
   const side = d.side === "long" ? "Long" : "Short";
+  const who = userName(a.user);
+  // Not every event happened on Swellfi: say where.
+  const venue = a.user.kind && a.user.kind !== "member" ? "on Hyperliquid, via" : "on";
+  if (a.kind === "whale") return `🐋 ${who} ${d.side === "buy" ? "bought" : "sold"} ${fCompact(d.size ?? 0)} of ${coin} at ${fPx(d.px)} ${venue} ${BRAND}`;
   return a.kind === "close"
-    ? `${a.user.handle} closed ${coin} ${side} for ${signed(d.pnl ?? 0)} on ${BRAND}`
-    : `${a.user.handle} opened ${coin} ${side}${d.lev ? ` ${d.lev}x` : ""} on ${BRAND}`;
+    ? `${who} closed ${coin} ${side} for ${signed(d.pnl ?? 0)} ${venue} ${BRAND}`
+    : `${who} opened ${coin} ${side}${d.lev ? ` ${d.lev}x` : ""} ${venue} ${BRAND}`;
 }
 
 function TradeItem({ a, now }: { a: ActivityItem; now: number }) {
@@ -103,8 +133,9 @@ function TradeItem({ a, now }: { a: ActivityItem; now: number }) {
         <div className="afi-top">
           <div className="afi-head">
             <Link href={profile} onClick={(e) => e.stopPropagation()} className="afi-name">
-              {a.user.handle}
+              {userName(a.user)}
             </Link>
+            <SourceTag a={a} />
             {a.user.xVerified && (
               <span className="vf" title="Verified on X">
                 <Icon name="check" size={11} />
@@ -145,6 +176,59 @@ function TradeItem({ a, now }: { a: ActivityItem; now: number }) {
               Copy trade
             </button>
           )}
+          <span style={{ flex: 1 }} />
+          <LikeButton a={a} />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/** A large taker order on Hyperliquid by someone who isn't on Swellfi. */
+function WhaleItem({ a, now }: { a: ActivityItem; now: number }) {
+  const router = useRouter();
+  const d = a.data;
+  const coin = d.coin ?? "";
+  const buy = d.side === "buy";
+  const profile = traderHref(a.user.handle);
+  const share = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${location.origin}${tradeHref(coin)}`;
+    const text = shareText(a);
+    if (navigator.share) return navigator.share({ text, url }).catch(() => {});
+    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank", "noopener,noreferrer");
+  };
+  return (
+    <article className="afi whale" onClick={() => router.push(tradeHref(coin))}>
+      <Link href={profile} onClick={(e) => e.stopPropagation()} className="afi-av">
+        <Avatar seed={a.user.handle} size={48} />
+      </Link>
+      <div className="afi-body">
+        <div className="afi-top">
+          <div className="afi-head">
+            <Link href={profile} onClick={(e) => e.stopPropagation()} className="afi-name">
+              {userName(a.user)}
+            </Link>
+            <SourceTag a={a} />
+            <span className="afi-verb">{buy ? "bought" : "sold"}</span>
+            <span className={`afi-amt ${buy ? "up" : "dn"}`}>{fCompact(d.size ?? 0)}</span>
+            <Link href={tradeHref(coin)} onClick={(e) => e.stopPropagation()} className="afi-coin">
+              <CoinIcon name={coin} size={20} />
+              {displayName(coin)}
+            </Link>
+          </div>
+          <time className="dim" dateTime={a.createdAt}>
+            {ago(new Date(a.createdAt).getTime(), now)}
+          </time>
+        </div>
+        <div className="afi-sub">
+          Hyperliquid · Market {buy ? "buy" : "sell"} · {d.sz != null ? `${+d.sz.toPrecision(6)} ${displayName(coin)}` : ""} at {fPx(d.px)}
+        </div>
+        <div className="afi-actions">
+          <button className="afa" onClick={share}>
+            <Icon name="share" size={16} />
+            Share
+          </button>
           <span style={{ flex: 1 }} />
           <LikeButton a={a} />
         </div>
@@ -292,12 +376,14 @@ export function FeedView() {
   const qc = useQueryClient();
   const [scope, setScope] = useState<Scope>("global");
   const [kind, setKind] = useState<Kind>("trades");
+  const [source, setSource] = useState<Source>("all");
   const now = useNow(20_000);
   const q = useInfiniteQuery({
-    queryKey: ["activity", "feed", scope, kind, s.status],
+    queryKey: ["activity", "feed", scope, kind, source, s.status],
     enabled: scope === "global" || s.status === "ready",
     initialPageParam: "",
-    queryFn: ({ pageParam }) => api<{ items: ActivityItem[]; nextCursor: string | null }>(`/activity?scope=${scope}&kind=${kind}&limit=20${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ""}`),
+    queryFn: ({ pageParam }) =>
+      api<{ items: ActivityItem[]; nextCursor: string | null }>(`/activity?scope=${scope}&kind=${kind}&source=${source}&limit=20${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ""}`),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     refetchInterval: 15_000,
   });
@@ -330,13 +416,21 @@ export function FeedView() {
               </button>
             </div>
           </div>
+          <div className="afsrc" role="tablist" aria-label="Source">
+            {(Object.keys(SOURCE_LABEL) as Source[]).map((k) => (
+              <button key={k} role="tab" aria-selected={source === k} className={source === k ? "on" : ""} onClick={() => setSource(k)}>
+                {k === "whales" ? "🐋 " : ""}
+                {SOURCE_LABEL[k]}
+              </button>
+            ))}
+          </div>
           <div className="glass afeed">
             <SummaryBar />
             {items.length ? (
-              items.map((a) => (a.kind === "open" || a.kind === "close" ? <TradeItem key={a.id} a={a} now={now} /> : null))
+              items.map((a) => (a.kind === "whale" ? <WhaleItem key={a.id} a={a} now={now} /> : a.kind === "open" || a.kind === "close" ? <TradeItem key={a.id} a={a} now={now} /> : null))
             ) : (
               <Empty icon={<Icon name="feed" size={22} />} title={q.isLoading ? "Loading the feed…" : scope === "following" ? "Nothing from the traders you follow yet" : "No trades yet"}>
-                {q.isLoading ? "" : scope === "following" ? "Follow traders from Rankings or the suggestions on the right." : `Trades placed by ${BRAND} traders show up here within a minute.`}
+                {q.isLoading ? "" : scope === "following" ? "Follow traders from Rankings or the suggestions on the right." : SOURCE_EMPTY[source]}
               </Empty>
             )}
             {q.hasNextPage && (

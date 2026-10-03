@@ -49,6 +49,8 @@ export interface IndexerOptions {
   log?: (msg: string, extra?: unknown) => void;
   /** Log every poll (INDEXER_DEBUG=1). */
   debug?: boolean;
+  /** Minimum time between polls of a top trader (tests shorten it). */
+  topPollMs?: number;
 }
 
 export const BACKFILL_DAYS = 30;
@@ -58,12 +60,21 @@ const BUSY_MS = 20_000;
 const MAX_IDLE_MS = 15 * 60_000;
 const EQUITY_EVERY_MS = 15 * 60_000;
 const PAGE = 2000; // userFillsByTime returns at most 2000 fills per call
+/**
+ * Top traders (Hyperliquid leaderboard, not Swellfi members) are only followed for the feed:
+ * a day of history, no stats or equity, polled at most every 2 minutes with one request when
+ * quiet, and only their bigger trades become events (a few per poll at most).
+ */
+export const TOP = { backfillMs: 864e5, minPollMs: 120_000, pages: 1, minEventUsd: 25_000, maxNewEvents: 5 };
 
 const D = (v: number) => new Prisma.Decimal(v.toFixed(10));
 // Next poll after `idle` quiet polls in a row. A sync resets the count, so a fresh trade is
 // rechecked within seconds (Hyperliquid's info API can trail the exchange by a moment).
 const STEPS = [5_000, 15_000, 30_000, 60_000, 120_000, 240_000, 480_000, MAX_IDLE_MS];
 export const backoffMs = (idle: number) => STEPS[Math.min(Math.max(idle, 1), STEPS.length) - 1]!;
+
+/** User kinds the indexer polls ("external" addresses only appear through whale trades). */
+const INDEXED = ["member", "top"];
 
 export function createIndexer(o: IndexerOptions) {
   const { prisma, redis, info } = o;
@@ -101,10 +112,10 @@ export function createIndexer(o: IndexerOptions) {
   }
 
   /** Every new fill since the cursor, following pages of 2000. */
-  async function newFills(address: string, cursor: number): Promise<HlFill[]> {
+  async function newFills(address: string, cursor: number, top = false): Promise<HlFill[]> {
     const out: HlFill[] = [];
-    let start = cursor ? cursor + 1 : now() - BACKFILL_DAYS * 864e5;
-    for (let i = 0; i < 10; i++) {
+    let start = cursor ? cursor + 1 : now() - (top ? TOP.backfillMs : BACKFILL_DAYS * 864e5);
+    for (let i = 0; i < (top ? TOP.pages : 10); i++) {
       const page = await call(() => info.userFillsByTime(address, start));
       out.push(...page);
       if (page.length < PAGE) break;
@@ -153,14 +164,22 @@ export function createIndexer(o: IndexerOptions) {
   });
 
   /** Rebuild the feed events of these orders from every stored fill (partial fills converge). */
-  async function upsertEvents(userId: string, newOnes: HlFill[], lev: Record<string, number>) {
+  async function upsertEvents(userId: string, newOnes: HlFill[], lev: Record<string, number>, top = false) {
     const feedFrom = now() - FEED_BACKFILL_DAYS * 864e5;
     const oids = [...new Set(newOnes.filter((f) => f.time >= feedFrom).map((f) => f.oid))];
     if (!oids.length) return [];
     const stored = await prisma.fill.findMany({ where: { userId, oid: { in: oids.map((x) => BigInt(x)) } } });
     const all = stored.map(asHl);
-    const events = buildEvents(userId, all, lev);
+    let events = buildEvents(userId, all, lev);
     const existing = new Map((await prisma.activity.findMany({ where: { id: { in: events.map((e) => e.id) } }, select: { id: true, data: true } })).map((a) => [a.id, a.data as FeedEvent["data"]]));
+    if (top) {
+      // Bigger trades only, and only the newest few new ones, so one busy trader can't flood the feed.
+      const fresh = events
+        .filter((e) => !existing.has(e.id) && e.data.size >= TOP.minEventUsd)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, TOP.maxNewEvents);
+      events = events.filter((e) => existing.has(e.id) || fresh.includes(e));
+    }
     const created: FeedEvent[] = [];
     for (const e of events) {
       const prev = existing.get(e.id);
@@ -212,14 +231,16 @@ export function createIndexer(o: IndexerOptions) {
   }
 
   /** Index one user. Returns the number of new fills. */
-  async function pollUser(user: { id: string; address: string }) {
+  async function pollUser(user: { id: string; address: string; kind?: string }) {
+    const top = user.kind === "top";
     const st = await prisma.indexState.upsert({ where: { userId: user.id }, create: { userId: user.id }, update: {} });
-    const fills = await newFills(user.address, Number(st.fillCursor));
+    const fills = await newFills(user.address, Number(st.fillCursor), top);
     const added = await saveFills(user.id, fills);
     const t = now();
     let lev: Record<string, number> = {};
     let equity: number | null = null;
-    if (fills.length || !st.equityAt || t - st.equityAt.getTime() > EQUITY_EVERY_MS) {
+    // Top traders: accounts only for the leverage of new trades.
+    if (top ? fills.length > 0 : fills.length || !st.equityAt || t - st.equityAt.getTime() > EQUITY_EVERY_MS) {
       equity = 0;
       for (const dex of dexes) {
         const a = await call(() => info.account(user.address, dex));
@@ -227,15 +248,16 @@ export function createIndexer(o: IndexerOptions) {
         lev = { ...lev, ...a.lev };
       }
     }
+    if (top) equity = null;
     // Equity history once, so ROI and the equity chart work from the first day.
-    if (!st.backfilled) {
+    if (!st.backfilled && !top) {
       const hist = await call(() => info.monthEquity(user.address)).catch(() => []);
       for (const [day, v] of equityByDay(hist)) await setEquity(user.id, day, v);
     }
     let created: FeedEvent[] = [];
     if (fills.length) {
-      await rollup(user.id, fills);
-      created = await upsertEvents(user.id, fills, lev);
+      if (!top) await rollup(user.id, fills);
+      created = await upsertEvents(user.id, fills, lev, top);
     }
     if (equity != null) await setEquity(user.id, utcDay(t).getTime(), equity);
 
@@ -248,19 +270,20 @@ export function createIndexer(o: IndexerOptions) {
     // Schedule the next poll, unless a sync (/me/sync) asked for an earlier one while this poll
     // ran: that request must win, or a trade made during the poll would wait for the backoff.
     // One statement, so a sync landing right now can't be lost either.
-    const next = new Date(t + (added ? BUSY_MS : backoffMs(idle)));
+    const wait = added ? BUSY_MS : backoffMs(idle);
+    const next = new Date(t + (top ? Math.max(o.topPollMs ?? TOP.minPollMs, wait) : wait));
     await prisma.$executeRaw`UPDATE "IndexState" SET "nextPollAt" = CASE WHEN "nextPollAt" <> ${st.nextPollAt} THEN LEAST("nextPollAt", ${next}) ELSE ${next} END WHERE "userId" = ${user.id}`;
     // Live feed: only events that just happened (not a backfill).
     for (const e of created) {
       if (t - e.createdAt.getTime() < 15 * 60_000) await publish(redis, CH.activity, { id: e.id, kind: e.kind, userId: user.id, data: e.data, createdAt: e.createdAt }).catch(() => {});
     }
-    if (created.length || added) await redis.del("tl:act:sum", "tl:lb:24h", "tl:lb:7d", "tl:lb:30d", "tl:lb:all").catch(() => {});
+    if (!top && (created.length || added)) await redis.del("tl:act:sum", "tl:lb:24h", "tl:lb:7d", "tl:lb:30d", "tl:lb:all").catch(() => {});
     return added;
   }
 
-  /** Make sure every real (non-demo) user has an IndexState row. */
+  /** Make sure every real (non-demo) member and followed top trader has an IndexState row. */
   async function enroll() {
-    const missing = await prisma.user.findMany({ where: { isDemo: false, indexState: null }, select: { id: true }, take: 500 });
+    const missing = await prisma.user.findMany({ where: { isDemo: false, kind: { in: INDEXED }, indexState: null }, select: { id: true }, take: 500 });
     if (missing.length) await prisma.indexState.createMany({ data: missing.map((u) => ({ userId: u.id })), skipDuplicates: true });
     return missing.length;
   }
@@ -269,10 +292,10 @@ export function createIndexer(o: IndexerOptions) {
   async function tick(limit = 25) {
     await enroll();
     const due = await prisma.indexState.findMany({
-      where: { nextPollAt: { lte: new Date(now()) }, user: { isDemo: false } },
+      where: { nextPollAt: { lte: new Date(now()) }, user: { isDemo: false, kind: { in: INDEXED } } },
       orderBy: { nextPollAt: "asc" },
       take: limit,
-      include: { user: { select: { id: true, address: true } } },
+      include: { user: { select: { id: true, address: true, kind: true } } },
     });
     let fills = 0;
     for (const s of due) {

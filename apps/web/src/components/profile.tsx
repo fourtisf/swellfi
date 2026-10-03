@@ -3,7 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, Empty, fPct, fUsd, Icon, sgn, Sparkline } from "@swellfi/ui";
 import Link from "next/link";
-import { api, ApiError, type Fund, type PublicUser, type Summary } from "@/lib/api";
+import { api, ApiError, userName, type Fund, type PublicUser, type Summary } from "@/lib/api";
+import { BRAND } from "@/lib/env";
 import { fundHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
 import { openModal, toast } from "@/lib/ui-store";
@@ -51,7 +52,7 @@ export function ProfileView({ handle }: { handle: string }) {
       <div className="who" style={{ marginBottom: 12 }}>
         <Avatar seed={d.user.handle} size={64} ring src={d.user.avatarUrl} />
         <div>
-          <h2>{d.user.handle}</h2>
+          <h2>{userName(d.user)}</h2>
           <small className="dim" style={{ fontSize: 13 }}>
             {d.user.addressShort} · {d.followers.toLocaleString()} followers
             {d.user.xVerified && d.user.xHandle && (
@@ -66,6 +67,15 @@ export function ProfileView({ handle }: { handle: string }) {
           </small>
         </div>
       </div>
+      {d.user.kind && d.user.kind !== "member" && (
+        <p className="ext-note">
+          {d.user.kind === "top" ? "A top trader on Hyperliquid's leaderboard." : "A Hyperliquid trader."} Not on {BRAND}: their trades show in the feed straight from Hyperliquid, without
+          stats or rankings.{" "}
+          <a href={`https://app.hyperliquid.xyz/explorer/address/${d.user.address}`} target="_blank" rel="noopener noreferrer">
+            View on Hyperliquid ↗
+          </a>
+        </p>
+      )}
       {d.user.bio && (
         <p className="mut" style={{ margin: "8px 0 16px", whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
           {d.user.bio}

@@ -64,9 +64,10 @@ export async function accountRoutes(app: FastifyInstance, ctx: AppContext) {
     if (env.INVITE_ONLY && !body.code) throw badRequest("INVITE_REQUIRED", "An invite code is required");
 
     const user = await prisma.$transaction(async (tx) => {
-      if (await tx.user.findUnique({ where: { address: body.address }, select: { id: true } })) {
-        throw new HttpError(409, "WALLET_TAKEN", "That wallet already has an account");
-      }
+      // A Hyperliquid address the feed already shows (top trader, whale) is claimed by its owner:
+      // the row becomes their account and keeps its activity.
+      const taken = await tx.user.findUnique({ where: { address: body.address }, select: { id: true, kind: true } });
+      if (taken && taken.kind === "member") throw new HttpError(409, "WALLET_TAKEN", "That wallet already has an account");
       if (body.code) {
         const used = await tx.inviteCode.updateMany({
           where: {
@@ -79,17 +80,23 @@ export async function accountRoutes(app: FastifyInstance, ctx: AppContext) {
         if (used.count === 0) throw badRequest("INVALID_INVITE", "That invite code is invalid or used up");
       }
       const referrer = body.ref ? await tx.user.findUnique({ where: { referralCode: body.ref }, select: { id: true } }) : null;
-      const created = await tx.user.create({
-        data: {
-          privyId: id.privyId,
-          address: body.address,
-          handle: await uniqueHandle(tx, body.address),
-          referralCode: randomCode(8),
-          referredById: referrer?.id ?? null,
-          inviteCode: body.code ?? null,
-          termsAcceptedAt: new Date(),
-        },
-      });
+      const data = {
+        privyId: id.privyId,
+        kind: "member",
+        handle: await uniqueHandle(tx, body.address),
+        referralCode: randomCode(8),
+        referredById: referrer?.id ?? null,
+        inviteCode: body.code ?? null,
+        termsAcceptedAt: new Date(),
+      };
+      let created;
+      if (taken) {
+        created = await tx.user.update({ where: { id: taken.id }, data });
+        // Index it as a member from now on: full backfill, stats and equity.
+        await tx.indexState.deleteMany({ where: { userId: taken.id } });
+      } else {
+        created = await tx.user.create({ data: { ...data, address: body.address } });
+      }
       if (body.code) await tx.inviteCode.update({ where: { code: body.code }, data: { usedById: created.id, usedAt: new Date() } });
       await tx.watchItem.createMany({ data: DEFAULT_WATCHLIST.map((coin) => ({ userId: created.id, coin })) });
       return created;

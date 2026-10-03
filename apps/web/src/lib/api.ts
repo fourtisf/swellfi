@@ -44,7 +44,12 @@ export interface PublicUser {
   bio: string | null;
   xHandle: string | null;
   xVerified: boolean;
+  /** member: on Swellfi. top: Hyperliquid leaderboard trader. external: other Hyperliquid address (whale trades). */
+  kind?: "member" | "top" | "external";
 }
+
+/** Members by handle; Hyperliquid traders who aren't on Swellfi by their short address. */
+export const userName = (u: Pick<PublicUser, "handle" | "addressShort" | "kind">) => (u.kind && u.kind !== "member" ? u.addressShort : u.handle);
 
 export interface Summary {
   pnl: string;
@@ -84,11 +89,12 @@ export interface Fund {
 
 export interface ActivityItem {
   id: string;
-  kind: "open" | "close" | "verify" | "follow" | "fund";
+  kind: "open" | "close" | "whale" | "verify" | "follow" | "fund";
   user: PublicUser;
   data: {
     coin?: string;
-    side?: "long" | "short";
+    /** long/short for trades; buy/sell (the taker's side) for whale trades. */
+    side?: "long" | "short" | "buy" | "sell";
     lev?: number;
     size?: number;
     px?: number;

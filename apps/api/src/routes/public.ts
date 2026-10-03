@@ -26,7 +26,7 @@ export async function publicRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/stats", async () =>
     cached(redis, "tl:stats", 30, async () => {
       const [users, totals, tvl] = await Promise.all([
-        prisma.user.count(),
+        prisma.user.count({ where: { kind: "member" } }),
         prisma.dailyStat.aggregate({ _sum: { volume: true, trades: true } }),
         prisma.$queryRaw<{ tvl: Prisma.Decimal | null }[]>`
           SELECT SUM(d.equity) AS tvl FROM "DailyStat" d
@@ -47,7 +47,7 @@ export async function publicRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/search", async (req) => {
     const { q } = z.object({ q: z.string().trim().max(32).default("") }).parse(req.query);
     const users = await prisma.user.findMany({
-      where: { isPublic: true, ...(q ? { handle: { contains: q.toLowerCase() } } : {}) },
+      where: { isPublic: true, kind: "member", ...(q ? { handle: { contains: q.toLowerCase() } } : {}) },
       orderBy: { followers: { _count: "desc" } },
       take: q ? 6 : 4,
     });

@@ -13,7 +13,10 @@
 //   NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://localhost:4100/ws
 //   NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc
 // Test hooks: POST /__mock/price {coin, px}, POST /__mock/deposit {user, amount},
-//   POST /__mock/usdc {user, amount} (sets the main-dex balance), GET /__mock/state
+//   POST /__mock/usdc {user, amount} (sets the main-dex balance), GET /__mock/state,
+//   POST /__mock/fill {user, coin, px, sz, dir, closedPnl?} (a fill for any address, e.g. a top trader),
+//   POST /__mock/trade {coin, px, sz, side, taker, parts?} (a public trade, split into `parts` fills
+//   of one order, on the trades WebSocket), GET /leaderboard (stats-data leaderboard, LEADERBOARD rows)
 import http from "node:http";
 import { createL1ActionHash } from "@nktkas/hyperliquid/signing";
 import { decodeFunctionData, keccak256, recoverTypedDataAddress, toHex } from "viem";
@@ -27,6 +30,13 @@ const USDC = (IS_TESTNET ? "0x1baAbB04529D43a73232B713C0FE471f7c7334d5" : "0xaf8
 const FEES = { taker: 0.00045, maker: 0.00015 };
 const BUILDER = (process.env.MOCK_HL_BUILDER || "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").toLowerCase();
 const MIN_BUILDER_VALUE = 100;
+// Leaderboard (stats-data): one trader worth following, one market maker the app should skip.
+const perf = (pnl, vlm) => [["day", { pnl: "0", roi: "0", vlm: "0" }], ["week", { pnl: "0", roi: "0", vlm: "0" }], ["month", { pnl: String(pnl), roi: "0.2", vlm: String(vlm) }], ["allTime", { pnl: String(pnl * 3), roi: "1", vlm: String(vlm * 5) }]];
+const TOP_TRADER = "0x00000000000000000000000000000000000070b0";
+const LEADERBOARD = [
+  { ethAddress: TOP_TRADER, accountValue: "2500000.0", displayName: null, prize: 0, windowPerformances: perf(840000, 9e7) },
+  { ethAddress: "0x00000000000000000000000000000000000000c0", accountValue: "1000000.0", displayName: null, prize: 0, windowPerformances: perf(990000, 5e10) },
+];
 
 // ---------------- Markets ----------------
 // [name, px, maxLeverage, szDecimals]
@@ -555,6 +565,9 @@ const server = http.createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "content-type");
   if (req.method === "OPTIONS") return res.end();
   try {
+    if (req.method === "GET" && req.url === "/leaderboard") {
+      return send(res, 200, { leaderboardRows: LEADERBOARD });
+    }
     if (req.method === "GET" && req.url === "/__mock/state") {
       return send(res, 200, Object.fromEntries([...accounts.entries()].map(([u, a]) => [u, { usdc: a.usdc, positions: [...a.positions.values()], orders: a.orders, fills: a.fills, agents: a.agents, builders: Object.fromEntries(a.builders), withdrawals: a.withdrawals }])));
     }
@@ -578,6 +591,26 @@ const server = http.createServer(async (req, res) => {
       mids[body.coin] = body.px;
       pinned.add(body.coin);
       match();
+      return send(res, 200, { ok: true });
+    }
+    if (req.url === "/__mock/fill") {
+      const a = acct(body.user);
+      const tid = nextTid++;
+      const dir = body.dir ?? "Open Long";
+      a.fills.unshift({
+        coin: body.coin, px: str(+body.px), sz: str(+body.sz), side: /Long/.test(dir) === dir.startsWith("Open") ? "B" : "A", time: Date.now(),
+        startPosition: "0", dir, closedPnl: String(body.closedPnl ?? "0"), hash: toHex(tid, { size: 32 }), oid: nextOid++, crossed: true,
+        fee: (+body.px * +body.sz * FEES.taker).toFixed(6), tid, feeToken: "USDC",
+      });
+      return send(res, 200, { ok: true });
+    }
+    if (req.url === "/__mock/trade") {
+      const parts = Math.max(1, body.parts ?? 1);
+      const hash = toHex(nextTid + 7e15, { size: 32 });
+      const maker = "0x00000000000000000000000000000000000000aa";
+      const users = body.side === "B" ? [body.taker, maker] : [maker, body.taker];
+      const data = Array.from({ length: parts }, () => ({ coin: body.coin, side: body.side, px: str(+body.px), sz: str(+body.sz / parts), time: Date.now(), hash, tid: nextTid++, users }));
+      for (const { ws, subs } of sockets) if (ws.readyState === 1 && subs.some((x) => x.type === "trades" && x.coin === body.coin)) ws.send(JSON.stringify({ channel: "trades", data }));
       return send(res, 200, { ok: true });
     }
     if (req.url === "/__mock/usdc") {

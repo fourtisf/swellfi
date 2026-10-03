@@ -13,6 +13,8 @@ export function publicUser(u: User) {
     bio: u.bio,
     xHandle: u.xVerified ? u.xHandle : null,
     xVerified: u.xVerified,
+    /** member (on Swellfi), top (Hyperliquid leaderboard trader) or external (other Hyperliquid address). */
+    kind: u.kind,
   };
 }
 

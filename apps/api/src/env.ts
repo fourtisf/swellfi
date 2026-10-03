@@ -26,6 +26,22 @@ const schema = z.object({
   INDEXER_INFO_URL: z.string().optional(),
   /** Indexer: max Hyperliquid info requests per minute (each costs ~20 of the 1200/min IP budget). */
   INDEXER_RPM: z.coerce.number().int().min(1).default(40),
+  NEXT_PUBLIC_HL_WS_URL: z.string().optional(),
+  /** Top traders the feed follows: Hyperliquid's leaderboard JSON ("off" to disable; defaults per network). */
+  TOP_TRADERS_URL: z.string().optional(),
+  /** How many leaderboard traders to follow (each costs about one request per 2 minutes). */
+  TOP_TRADERS_N: z.coerce.number().int().min(0).max(100).default(20),
+  /** Extra addresses to follow as top traders, comma separated. */
+  TOP_TRADERS: z.string().default(""),
+  /** Whale trades in the feed: "off" to disable. Taker orders of at least this many USD. */
+  WHALES: z.string().default("on"),
+  WHALE_MIN_USD: z.coerce.number().min(1000).default(250_000),
+  /** Threshold for BTC and ETH. */
+  WHALE_MIN_USD_MAJOR: z.coerce.number().min(1000).default(1_000_000),
+  /** Markets watched for whale trades: the most traded N of the main dex. */
+  WHALE_COINS: z.coerce.number().int().min(1).max(200).default(40),
+  /** WebSocket override for whale trades (else the trading network's public WS). */
+  WHALE_WS_URL: z.string().optional(),
   /** News panel sources: "Name|https://feed,Name|https://feed". Defaults to CoinDesk, Decrypt, Cointelegraph. */
   NEWS_FEEDS: z.string().optional(),
   NEXT_PUBLIC_BRAND_NAME: z.string().default("Swellfi"),

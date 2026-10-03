@@ -22,6 +22,10 @@ model User {
   xVerified       Boolean   @default(false)
   isPublic        Boolean   @default(true)
   isDemo          Boolean   @default(false) // seeded dev data, never in production
+  /// member: signed up on Swellfi. top: a Hyperliquid leaderboard trader the indexer follows.
+  /// external: any other Hyperliquid address seen in the feed (whale trades). Only members can
+  /// log in; top/external rows have a placeholder privyId and are claimed when the owner signs up.
+  kind            String    @default("member")
   referralCode    String    @unique
   referredById    String?
   inviteCode      String?
@@ -44,6 +48,8 @@ model User {
   avatar        Avatar?
   activityLikes ActivityLike[]
   indexState    IndexState?
+
+  @@index([kind])
 }
 
 /// Profile picture uploaded by the user (small WebP/PNG/JPEG, served from /api/avatars/:userId).

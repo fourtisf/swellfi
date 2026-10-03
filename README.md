@@ -101,7 +101,7 @@ Then open http://localhost:3000.
 5. The TP fires.
 6. Withdraw.
 
-`e2e/feed.spec.ts` covers the activity feed end to end: a trade is picked up by the indexer (run it against the mock, see below), shows as "opened" and "closed", and a second trader likes it, follows, filters and uses Copy trade. `e2e/profile.spec.ts` covers editing the profile and the deposit/withdrawal history. `e2e/tpsl.spec.ts` sets, edits and removes TP/SL on an open position and lets the stop fire. `e2e/close.spec.ts` closes a position in three steps: part at market, part with a resting limit, the rest with a limit already through the market. `e2e/builder.spec.ts` trades from the builder wallet (no fee to itself); its unfunded-builder tests (users still trade without the fee; the fee comes back once it's funded; Hyperliquid refusing after a stale balance read) empty the builder's balance, so it only runs with `E2E_BUILDER_BALANCE=1` and on its own (`pnpm --filter @swellfi/web e2e builder.spec.ts`).
+`e2e/feed.spec.ts` covers the activity feed end to end: a trade is picked up by the indexer (run it against the mock, see below), shows as "opened" and "closed", and a second trader likes it, follows, filters and uses Copy trade. `e2e/profile.spec.ts` covers editing the profile and the deposit/withdrawal history. `e2e/feed-sources.spec.ts` covers whale trades and top traders in the feed (run the indexer with `TOP_TRADERS_URL=http://localhost:4100/leaderboard INDEXER_TOP_POLL_MS=3000`). `e2e/tpsl.spec.ts` sets, edits and removes TP/SL on an open position and lets the stop fire. `e2e/close.spec.ts` closes a position in three steps: part at market, part with a resting limit, the rest with a limit already through the market. `e2e/builder.spec.ts` trades from the builder wallet (no fee to itself); its unfunded-builder tests (users still trade without the fee; the fee comes back once it's funded; Hyperliquid refusing after a stale balance read) empty the builder's balance, so it only runs with `E2E_BUILDER_BALANCE=1` and on its own (`pnpm --filter @swellfi/web e2e builder.spec.ts`).
 
 `e2e/deposit-relay.spec.ts` covers deposits from other networks through Relay (the Relay API and the Base RPC are mocked in the browser). It needs a mainnet build (`NEXT_PUBLIC_HL_NETWORK=mainnet`), the mock in mainnet mode (`MOCK_HL_NETWORK=mainnet`), and `E2E_NETWORK=mainnet`; otherwise it is skipped.
 
@@ -111,7 +111,7 @@ NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://lo
 NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc NEXT_PUBLIC_BUILDER_ADDRESS=0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
   pnpm --filter @swellfi/web build
 pnpm --filter @swellfi/api build && pnpm start &   # API + web
-(cd apps/api && INDEXER_RPM=600 node --env-file=../../.env dist/indexer-main.js &)   # indexer, for feed.spec
+(cd apps/api && INDEXER_RPM=600 TOP_TRADERS_URL=http://localhost:4100/leaderboard INDEXER_TOP_POLL_MS=3000 node --env-file=../../.env dist/indexer-main.js &)   # indexer, for the feed specs
 pnpm --filter @swellfi/web e2e                     # Playwright (set CHROMIUM_PATH if needed)
 ```
 
@@ -150,8 +150,16 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 - `DailyStat` per UTC day: PnL, volume, orders, closed orders, wins; equity from `clearinghouseState` (all dexes) and, on the first run, the `portfolio` month history. Funding isn't in PnL yet.
 - Scheduling: an account with new fills is polled again after 20 s; quiet ones back off 5 s, 15 s, 30 s, 1, 2, 4, 8 and at most 15 min. All requests share one token bucket (`INDEXER_RPM`, default 40/min), and a 429 pauses everything for a minute.
 - `POST /api/me/sync` (called by the web app when an order succeeds or a fill arrives) makes the indexer look at that account now. Limited per account: the first call in 10 s polls now, later ones are deferred to the window's end, never dropped. A poll that finishes never pushes back a sync that arrived while it ran.
-- Feed API: `GET /api/activity?scope=global|following&kind=all|trades|open|close`, likes (`POST/DELETE /api/activity/:id/like`), follows (`POST/DELETE /api/users/:id/follow`), `GET /api/news` (RSS, cached 10 min). Private accounts (`isPublic: false`, set in Edit profile) are left out of the feed and rankings.
+- Feed API: `GET /api/activity?scope=global|following&kind=all|trades|open|close&source=all|swellfi|whales|top`, likes (`POST/DELETE /api/activity/:id/like`), follows (`POST/DELETE /api/users/:id/follow`), `GET /api/news` (RSS, cached 10 min). Private accounts (`isPublic: false`, set in Edit profile) are left out of the feed and rankings.
 - "Copy trade" only fills in the order panel (market, side, leverage). The user still picks the size and confirms.
+
+### Beyond members: whales and top traders
+
+The feed also shows real Hyperliquid activity from people who aren't on Swellfi, labeled as such (`User.kind`: `member`, `top`, `external`). Only members can log in (the others have a `hl:0x…` placeholder privyId that no session produces), and only members count in rankings, platform stats, suggestions and search. When the owner of a `top`/`external` address signs up, the row becomes their member account and keeps its history.
+
+- Top traders: every 6 hours the indexer reads Hyperliquid's leaderboard (`TOP_TRADERS_URL`, stats-data by default) and follows the best `TOP_TRADERS_N` (20) by monthly PnL: profitable this month and all time, at least $50K account value, monthly volume at most 200x the account (no market makers). `TOP_TRADERS` adds fixed addresses. They're indexed lightly: one day of history, one request per poll when quiet, at most every 2 minutes, no stats; only trades of $25K+ become events, at most 5 new ones per poll. A failed leaderboard fetch keeps the current list; traders who drop off become `external`.
+- Whales: one WebSocket to Hyperliquid's public `trades` feed of the `WHALE_COINS` (40) most traded markets. The fills of one taker order (same hash) are summed; orders of at least `WHALE_MIN_USD` ($250K, `WHALE_MIN_USD_MAJOR` $1M for BTC and ETH) become `whale` events ("bought/sold $X of COIN"). Members' and top traders' own orders aren't repeated as whale events. `WHALES=off` disables it.
+- Cleanup (hourly): whale events after 3 days, external traders' events after 7 days and fills after 3 days, and `external` rows with nothing left and no followers.
 
 ## Testnet runbook (Phase 2 acceptance)
 

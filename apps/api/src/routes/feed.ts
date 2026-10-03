@@ -6,7 +6,14 @@ import { forbidden, notFound, unauthorized } from "../lib/http";
 import { cursorSchema, limitSchema } from "../lib/validate";
 import { publicUser } from "./serialize";
 
-const KINDS: Record<string, string[] | undefined> = { all: undefined, trades: ["open", "close"], open: ["open"], close: ["close"] };
+const KINDS: Record<string, string[] | undefined> = { all: undefined, trades: ["open", "close", "whale"], open: ["open"], close: ["close"] };
+/** Where events come from: Swellfi members, Hyperliquid leaderboard traders, whale trades. */
+const SOURCES: Record<string, Prisma.ActivityWhereInput | undefined> = {
+  all: undefined,
+  swellfi: { user: { kind: "member" } },
+  top: { user: { kind: "top" }, kind: { in: ["open", "close"] } },
+  whales: { kind: "whale" },
+};
 const idSchema = z.string().min(1).max(200);
 const SYNC_WINDOW_MS = 10_000;
 
@@ -80,7 +87,13 @@ export async function feedRoutes(app: FastifyInstance, ctx: AppContext) {
   /** Live activity: trades (opened/closed, from the indexer) and other events, newest first. */
   app.get("/activity", async (req) => {
     const q = z
-      .object({ scope: z.enum(["global", "following"]).default("global"), kind: z.enum(["all", "trades", "open", "close"]).default("all"), cursor: cursorSchema, limit: limitSchema(50, 20) })
+      .object({
+        scope: z.enum(["global", "following"]).default("global"),
+        kind: z.enum(["all", "trades", "open", "close"]).default("all"),
+        source: z.enum(["all", "swellfi", "top", "whales"]).default("all"),
+        cursor: cursorSchema,
+        limit: limitSchema(50, 20),
+      })
       .parse(req.query);
     const me = await ctx.currentUser(req).catch(() => null);
     const where: Prisma.ActivityWhereInput = { user: { isPublic: true } };
@@ -93,6 +106,8 @@ export async function feedRoutes(app: FastifyInstance, ctx: AppContext) {
       delete where.user;
       where.OR = [{ userId: me.id }, { userId: { in: ids }, user: { isPublic: true } }];
     }
+    const src = SOURCES[q.source];
+    if (src) where.AND = [src];
     const items = await prisma.activity.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
