@@ -446,6 +446,13 @@ function info(b) {
       return acct(b.user).history;
     case "userFills":
       return acct(b.user).fills;
+    case "userFillsByTime":
+      // oldest first, like Hyperliquid
+      return acct(b.user).fills.filter((f) => f.time >= (b.startTime ?? 0) && (b.endTime == null || f.time <= b.endTime)).slice().reverse();
+    case "portfolio": {
+      const v = +clearinghouse(acct(b.user), "").marginSummary.accountValue;
+      return [["perpMonth", { accountValueHistory: [[Date.now() - 864e5, String(v)]], pnlHistory: [], vlm: "0" }]];
+    }
     case "userFunding":
       return [];
     case "userNonFundingLedgerUpdates":

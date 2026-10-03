@@ -17,7 +17,7 @@ export function setTokenGetter(fn: () => Promise<string | null>) {
   getToken = fn;
 }
 
-export async function api<T>(path: string, init: { method?: "GET" | "POST" | "DELETE"; body?: unknown } = {}): Promise<T> {
+export async function api<T>(path: string, init: { method?: "GET" | "POST" | "DELETE"; body?: unknown; keepalive?: boolean } = {}): Promise<T> {
   const token = await getToken().catch(() => null);
   const res = await fetch(`/api${path}`, {
     method: init.method ?? "GET",
@@ -26,6 +26,7 @@ export async function api<T>(path: string, init: { method?: "GET" | "POST" | "DE
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    ...(init.keepalive ? { keepalive: true } : {}),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, data.error ?? "ERROR", data.message ?? `Request failed (${res.status})`);
@@ -100,8 +101,24 @@ export interface ActivityItem {
     amount?: number;
     members?: number;
     return30d?: number;
+    /** Indexed trades: coins traded, entry/exit for closes. */
+    sz?: number;
+    entry?: number;
+    exit?: number;
+    liquidated?: boolean;
   };
   createdAt: string;
+  likes?: number;
+  liked?: boolean;
+  mine?: boolean;
+  isFollowing?: boolean;
+}
+
+export interface NewsItem {
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string | null;
 }
 
 export interface PostPosition {

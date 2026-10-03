@@ -4,10 +4,12 @@ import { displayName } from "@swellfi/hl";
 import { ago, Avatar, CoinIcon, fPct, fPx, fUsd, Icon, sgn } from "@swellfi/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import type { ActivityItem, PublicUser } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type ReactNode } from "react";
+import { api, type ActivityItem, type PublicUser } from "@/lib/api";
 import { fundHref, traderHref } from "@/lib/routes";
-import { SOON_SOCIAL, toast } from "@/lib/ui-store";
+import { useSession } from "@/lib/session";
+import { openModal, toast } from "@/lib/ui-store";
 
 export function TraderCell({ user, size = 34 }: { user: PublicUser; size?: number }) {
   return (
@@ -21,17 +23,39 @@ export function TraderCell({ user, size = 34 }: { user: PublicUser; size?: numbe
   );
 }
 
-export function FollowButton({ following, className = "follow", big }: { following: boolean; className?: string; big?: boolean }) {
+/** Follow / unfollow a trader. Signed-out users get the login modal. */
+export function FollowButton({ userId, following, className = "follow", big }: { userId: string; following: boolean; className?: string; big?: boolean }) {
+  const s = useSession();
+  const qc = useQueryClient();
+  const [on, setOn] = useState(following);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setOn(following), [following]);
+  if (s.me?.user.id === userId) return null;
   return (
     <button
-      className={big ? `btn ${following ? "btn-ghost" : "btn-brand"}` : `${className}${following ? " on" : ""}`}
-      onClick={(e) => {
+      className={big ? `btn ${on ? "btn-ghost" : "btn-brand"}` : `${className}${on ? " on" : ""}`}
+      disabled={busy}
+      onClick={async (e) => {
         e.stopPropagation();
         e.preventDefault();
-        toast(SOON_SOCIAL);
+        if (s.status !== "ready") return openModal(s.status === "needsInvite" ? "invite" : "wallet");
+        const next = !on;
+        setOn(next);
+        setBusy(true);
+        try {
+          await api(`/users/${encodeURIComponent(userId)}/follow`, { method: next ? "POST" : "DELETE" });
+          void qc.invalidateQueries({ queryKey: ["suggestions"] });
+          void qc.invalidateQueries({ queryKey: ["activity"] });
+          void qc.invalidateQueries({ queryKey: ["user"] });
+        } catch (err) {
+          setOn(!next);
+          toast(err instanceof Error ? err.message : String(err), "err");
+        } finally {
+          setBusy(false);
+        }
       }}
     >
-      {following ? "Following" : "Follow"}
+      {on ? "Following" : "Follow"}
     </button>
   );
 }
@@ -76,7 +100,8 @@ export function ActivityRow({ a, now, fresh }: { a: ActivityItem; now: number; f
       <>
         {n} opened{" "}
         <span className={`pill ${d.side === "long" ? "l" : "s"}`}>
-          {d.side === "long" ? "Long" : "Short"} {d.lev}x
+          {d.side === "long" ? "Long" : "Short"}
+          {d.lev ? ` ${d.lev}x` : ""}
         </span>{" "}
         <b>{displayName(d.coin ?? "")}</b>
       </>
@@ -93,7 +118,7 @@ export function ActivityRow({ a, now, fresh }: { a: ActivityItem; now: number; f
         </b>
       </>
     );
-    sub = `${d.lev}x · ${fUsd(d.size ?? 0, 0)} position`;
+    sub = d.entry != null && d.exit != null ? `${fPx(d.entry)} → ${fPx(d.exit)}${d.lev ? ` · ${d.lev}x` : ""}` : `${d.lev ? `${d.lev}x · ` : ""}${fUsd(d.size ?? 0, 0)} position`;
   }
   return (
     <div className={`act${fresh ? " fresh" : ""}`} style={{ cursor: "pointer" }} onClick={() => router.push(traderHref(a.user.handle))}>

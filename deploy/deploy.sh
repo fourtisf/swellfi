@@ -23,11 +23,8 @@ pnpm --filter @swellfi/api build
 pnpm --filter @swellfi/web build
 
 echo "→ reloading PM2"
-if pm2 describe swellfi-api >/dev/null 2>&1; then
-  pm2 reload deploy/ecosystem.config.cjs --update-env
-else
-  pm2 start deploy/ecosystem.config.cjs
-fi
+# startOrReload also starts apps added to the file since the last deploy (e.g. the indexer).
+pm2 startOrReload deploy/ecosystem.config.cjs --update-env
 pm2 save
 
 echo "→ health"

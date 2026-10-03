@@ -1,124 +1,249 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { change24h, displayName } from "@swellfi/hl";
-import { ago, Avatar, CoinIcon, Empty, fPct, fPx, Icon, Sparkline } from "@swellfi/ui";
+import { ago, Avatar, CoinIcon, Empty, fPx, fUsd, Icon } from "@swellfi/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { api, type FeedPost, type PublicUser } from "@/lib/api";
+import { useMemo, useState } from "react";
+import { api, type ActivityItem, type NewsItem, type PublicUser } from "@/lib/api";
 import { BRAND } from "@/lib/env";
 import { useNow } from "@/lib/hooks";
-import { loadSparks, useMarkets } from "@/lib/market";
+import { useMarkets } from "@/lib/market";
 import { traderHref, tradeHref } from "@/lib/routes";
 import { useSession } from "@/lib/session";
-import { openModal, SOON_SOCIAL, toast } from "@/lib/ui-store";
+import { openModal, toast } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
-import { FollowButton, TraderCell } from "./social";
+import { FollowButton } from "./social";
+import { useOrderForm } from "./trade/order-store";
 
-/** Live ROE of an attached position (prototype roeOf). */
-function useRoe(p: FeedPost["position"]) {
-  const mid = useMarkets((s) => (p ? s.mids[p.coin] : undefined));
-  if (!p) return 0;
-  return (p.side === "long" ? 1 : -1) * ((mid ?? p.entry) / p.entry - 1) * 100 * p.lev;
+type Scope = "global" | "following";
+type Kind = "trades" | "open" | "close";
+const KIND_LABEL: Record<Kind, string> = { trades: "All", open: "Opens", close: "Closes" };
+
+const fCompact = (v: number) => (Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : Math.abs(v) >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : fUsd(v, 2));
+const signed = (v: number) => `${v >= 0 ? "+" : "−"}${fUsd(Math.abs(v), Math.abs(v) >= 100 ? 0 : 2)}`;
+
+function useSignIn() {
+  const s = useSession();
+  return () => {
+    if (s.status === "ready") return true;
+    openModal(s.status === "needsInvite" ? "invite" : "wallet");
+    return false;
+  };
 }
 
-function PositionCard({ post }: { post: FeedPost }) {
-  const p = post.position!;
-  const roe = useRoe(p);
-  const spark = useMarkets((s) => s.spark[p.coin]);
-  const router = useRouter();
+/** Heart with a count; optimistic, rolls back on error. */
+function LikeButton({ a }: { a: ActivityItem }) {
+  const signIn = useSignIn();
+  const [st, setSt] = useState({ liked: Boolean(a.liked), likes: a.likes ?? 0 });
   return (
-    <div className={`pnlcard ${p.side === "short" ? "s" : ""} ${roe < 0 ? "neg" : ""}`} onClick={() => router.push(tradeHref(p.coin))}>
-      <span className="brand">
-        <Icon name="bolt" size={13} />
-        {BRAND}
-      </span>
-      <div>
-        <div className="lbl">
-          <CoinIcon name={p.coin} size={28} />
-          {displayName(p.coin)}-USD{" "}
-          <span className={`pill ${p.side === "long" ? "l" : "s"}`}>
-            {p.side === "long" ? "Long" : "Short"} {p.lev}x
-          </span>
-        </div>
-        <div className="roe">{fPct(roe, 1)}</div>
-        <div className="meta">
-          <span>
-            Entry<b>{fPx(p.entry)}</b>
-          </span>
-          <span>
-            Mark
-            <b>
-              <LivePx coin={p.coin} />
-            </b>
-          </span>
-        </div>
-      </div>
-      <div className="hide-m">{spark && <Sparkline data={spark} width={130} height={60} color={p.side === "long" ? "#16C784" : "#EA3943"} fill={0.25} />}</div>
-    </div>
+    <button
+      className={`afa like${st.liked ? " on" : ""}`}
+      aria-label={st.liked ? "Unlike" : "Like"}
+      onClick={async (e) => {
+        e.stopPropagation();
+        if (!signIn()) return;
+        const prev = st;
+        const liked = !st.liked;
+        setSt({ liked, likes: Math.max(0, st.likes + (liked ? 1 : -1)) });
+        try {
+          setSt(await api<{ likes: number; liked: boolean }>(`/activity/${encodeURIComponent(a.id)}/like`, { method: liked ? "POST" : "DELETE" }));
+        } catch (err) {
+          setSt(prev);
+          toast(err instanceof Error ? err.message : String(err), "err");
+        }
+      }}
+    >
+      <Icon name="heart" size={17} />
+      {st.likes > 0 && <span>{st.likes}</span>}
+    </button>
   );
 }
 
-function Post({ post, now }: { post: FeedPost; now: number }) {
+function shareText(a: ActivityItem) {
+  const d = a.data;
+  const coin = displayName(d.coin ?? "");
+  const side = d.side === "long" ? "Long" : "Short";
+  return a.kind === "close"
+    ? `${a.user.handle} closed ${coin} ${side} for ${signed(d.pnl ?? 0)} on ${BRAND}`
+    : `${a.user.handle} opened ${coin} ${side}${d.lev ? ` ${d.lev}x` : ""} on ${BRAND}`;
+}
+
+function TradeItem({ a, now }: { a: ActivityItem; now: number }) {
+  const router = useRouter();
+  const d = a.data;
+  const coin = d.coin ?? "";
+  const long = d.side === "long";
+  const opened = a.kind === "open";
+  const pnl = d.pnl ?? 0;
+  const profile = traderHref(a.user.handle);
+
+  const share = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${location.origin}${profile}`;
+    const text = shareText(a);
+    if (navigator.share) return navigator.share({ text, url }).catch(() => {});
+    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank", "noopener,noreferrer");
+  };
+  // Copy trade = same market, side and leverage in the order panel. Size and confirmation stay with the user.
+  const copy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    useOrderForm.getState().set({ side: long ? "long" : "short", otype: "market", ...(d.lev ? { lev: d.lev } : {}) });
+    router.push(tradeHref(coin));
+    toast(`Order panel set to ${displayName(coin)} ${long ? "Long" : "Short"}${d.lev ? ` ${d.lev}x` : ""}. Choose your size, then confirm.`);
+  };
+
   return (
-    <article className="post glass">
-      <div className="head">
-        <Link href={traderHref(post.user.handle)}>
-          <Avatar seed={post.user.handle} size={40} src={post.user.avatarUrl} />
-        </Link>
-        <div style={{ flex: 1 }}>
-          <Link href={traderHref(post.user.handle)}>
-            <b>{post.user.handle}</b>
-          </Link>
-          <br />
-          <span>
-            {post.user.addressShort} · {ago(new Date(post.createdAt).getTime(), now)}
-          </span>
+    <article className="afi" onClick={() => router.push(profile)}>
+      <Link href={profile} onClick={(e) => e.stopPropagation()} className="afi-av">
+        <Avatar seed={a.user.handle} size={48} src={a.user.avatarUrl} />
+      </Link>
+      <div className="afi-body">
+        <div className="afi-top">
+          <div className="afi-head">
+            <Link href={profile} onClick={(e) => e.stopPropagation()} className="afi-name">
+              {a.user.handle}
+            </Link>
+            {a.user.xVerified && (
+              <span className="vf" title="Verified on X">
+                <Icon name="check" size={11} />
+              </span>
+            )}
+            <span className="afi-verb">{opened ? "opened" : d.liquidated ? "was liquidated on" : "closed"}</span>
+            <Link href={tradeHref(coin)} onClick={(e) => e.stopPropagation()} className="afi-coin">
+              <CoinIcon name={coin} size={20} />
+              {displayName(coin)}
+            </Link>
+            <span className={`afi-side ${long ? "up" : "dn"}`}>{long ? "Long" : "Short"}</span>
+          </div>
+          <time className="dim" dateTime={a.createdAt}>
+            {ago(new Date(a.createdAt).getTime(), now)}
+          </time>
         </div>
-        {!post.mine && <FollowButton following={post.isFollowing} />}
-      </div>
-      <p>{post.text}</p>
-      {post.position && <PositionCard post={post} />}
-      <div className="pacts">
-        <button className={post.liked ? "on" : ""} onClick={() => toast(SOON_SOCIAL)}>
-          <Icon name="heart" size={16} />
-          {post.likes}
-        </button>
-        <button onClick={() => toast("Replies open with the social launch")}>
-          <Icon name="reply" size={16} />
-          {post.replies}
-        </button>
-        <span className="grow" />
-        {post.position && (
-          <Link href={tradeHref(post.position.coin)} className="pacts-trade" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, color: "var(--muted)", fontSize: 13 }}>
-            <Icon name="trade" size={16} />
-            Trade {displayName(post.position.coin)}
-          </Link>
-        )}
+        <div className="afi-sub">
+          {opened ? (
+            <>
+              Trade · Opened · {fUsd(d.size ?? 0, 0)} at {fPx(d.px)}
+              {d.lev ? ` · ${d.lev}x` : ""}
+            </>
+          ) : (
+            <>
+              Trade · Closed · <b className={pnl >= 0 ? "up" : "dn"}>{signed(pnl)}</b>
+              {d.entry != null && d.exit != null ? ` · ${fPx(d.entry)} → ${fPx(d.exit)}` : ` · ${fUsd(d.size ?? 0, 0)}`}
+            </>
+          )}
+        </div>
+        <div className="afi-actions">
+          <button className="afa" onClick={share}>
+            <Icon name="share" size={16} />
+            Share
+          </button>
+          {opened && !a.mine && now - new Date(a.createdAt).getTime() < 7 * 864e5 && (
+            <button className="afa copy" onClick={copy}>
+              <Icon name="trade" size={16} />
+              Copy trade
+            </button>
+          )}
+          <span style={{ flex: 1 }} />
+          <LikeButton a={a} />
+        </div>
       </div>
     </article>
   );
 }
 
-function WhoToFollow() {
-  const q = useQuery({ queryKey: ["suggestions"], queryFn: () => api<{ traders: { user: PublicUser; isFollowing: boolean }[] }>("/suggestions") });
-  const router = useRouter();
+function SummaryBar() {
+  const q = useQuery({ queryKey: ["activity", "summary"], queryFn: () => api<{ volumeToday: string; topCoin: string | null; tradersToday: number }>("/activity/summary"), refetchInterval: 30_000 });
+  const d = q.data;
   return (
-    <table>
-      <tbody>
-        {(q.data?.traders ?? []).map((t) => (
-          <tr key={t.user.id} className="click" onClick={() => router.push(traderHref(t.user.handle))}>
-            <td>
-              <TraderCell user={t.user} size={36} />
-            </td>
-            <td>
-              <FollowButton following={t.isFollowing} />
-            </td>
-          </tr>
+    <div className="afsum">
+      <span className="live">
+        <i />
+        LIVE
+      </span>
+      <span>
+        <b>{d ? fCompact(Number(d.volumeToday)) : "—"}</b> traded today
+      </span>
+      {d?.topCoin && (
+        <span>
+          <span className="afi-coin">
+            <CoinIcon name={d.topCoin} size={18} />
+            {displayName(d.topCoin)}
+          </span>{" "}
+          most traded
+        </span>
+      )}
+      <span>
+        <b>{d?.tradersToday ?? "—"}</b> traders
+      </span>
+    </div>
+  );
+}
+
+function SuggestedFollows() {
+  const q = useQuery({ queryKey: ["suggestions"], queryFn: () => api<{ traders: { user: PublicUser; isFollowing: boolean; equity: string }[] }>("/suggestions") });
+  const traders = q.data?.traders ?? [];
+  return (
+    <div className="glass">
+      <div className="ph">
+        <h3>Suggested follows</h3>
+      </div>
+      {!traders.length ? (
+        <p className="dim" style={{ padding: "0 20px 18px", margin: 0, fontSize: 13 }}>
+          {q.isLoading ? "Loading…" : "Traders show up here once they trade."}
+        </p>
+      ) : (
+        <ul className="sugg">
+          {traders.map((t) => (
+            <li key={t.user.id}>
+              <Link href={traderHref(t.user.handle)} className="who">
+                <Avatar seed={t.user.handle} size={40} src={t.user.avatarUrl} />
+                <div>
+                  <span className="n">
+                    {t.user.handle}
+                    {t.user.xVerified && (
+                      <span className="vf" style={{ marginLeft: 6 }}>
+                        <Icon name="check" size={10} />
+                      </span>
+                    )}
+                  </span>
+                  <small>{fCompact(Number(t.equity))} equity</small>
+                </div>
+              </Link>
+              <FollowButton userId={t.user.id} following={t.isFollowing} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function MarketNews({ now }: { now: number }) {
+  const q = useQuery({ queryKey: ["news"], queryFn: () => api<{ items: NewsItem[] }>("/news"), staleTime: 5 * 60_000, refetchInterval: 10 * 60_000 });
+  const items = (q.data?.items ?? []).slice(0, 6);
+  if (!q.isLoading && !items.length) return null;
+  return (
+    <div className="glass">
+      <div className="ph">
+        <h3>Market news</h3>
+      </div>
+      <ul className="news">
+        {items.map((n) => (
+          <li key={n.url}>
+            <a href={n.url} target="_blank" rel="noopener noreferrer nofollow">
+              {n.title}
+            </a>
+            <small className="dim">
+              {n.source}
+              {n.publishedAt ? ` · ${ago(new Date(n.publishedAt).getTime(), now)}` : ""}
+            </small>
+          </li>
         ))}
-      </tbody>
-    </table>
+        {q.isLoading && <li className="dim">Loading…</li>}
+      </ul>
+    </div>
   );
 }
 
@@ -133,58 +258,69 @@ function Trending() {
       .slice(0, 5);
   }, [markets]);
   return (
-    <table>
-      <tbody>
-        {list.map((m) => (
-          <tr key={m.name} className="click" onClick={() => router.push(tradeHref(m.name))}>
-            <td>
-              <div className="who">
-                <CoinIcon name={m.name} size={28} />
-                <span className="n">{displayName(m.name)}</span>
-              </div>
-            </td>
-            <td>
-              <LivePx coin={m.name} />
-            </td>
-            <td>
-              <LiveChg coin={m.name} chip />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="glass">
+      <div className="ph">
+        <h3>Trending markets</h3>
+      </div>
+      <table>
+        <tbody>
+          {list.map((m) => (
+            <tr key={m.name} className="click" onClick={() => router.push(tradeHref(m.name))}>
+              <td>
+                <div className="who">
+                  <CoinIcon name={m.name} size={28} />
+                  <span className="n">{displayName(m.name)}</span>
+                </div>
+              </td>
+              <td>
+                <LivePx coin={m.name} />
+              </td>
+              <td>
+                <LiveChg coin={m.name} chip />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
+/** Activity feed: every trade opened and closed on Swellfi, straight from Hyperliquid. */
 export function FeedView() {
   const s = useSession();
-  const [scope, setScope] = useState<"all" | "following">("all");
-  const now = useNow(30_000);
-  const q = useQuery({
-    queryKey: ["feed", scope, s.status],
-    enabled: scope === "all" || s.status === "ready",
-    queryFn: () => api<{ items: FeedPost[] }>(`/feed?scope=${scope}`).then((r) => r.items),
-    refetchInterval: 30_000,
+  const qc = useQueryClient();
+  const [scope, setScope] = useState<Scope>("global");
+  const [kind, setKind] = useState<Kind>("trades");
+  const now = useNow(20_000);
+  const q = useInfiniteQuery({
+    queryKey: ["activity", "feed", scope, kind, s.status],
+    enabled: scope === "global" || s.status === "ready",
+    initialPageParam: "",
+    queryFn: ({ pageParam }) => api<{ items: ActivityItem[]; nextCursor: string | null }>(`/activity?scope=${scope}&kind=${kind}&limit=20${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ""}`),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    refetchInterval: 15_000,
   });
-  const posts = q.data ?? [];
-  const coins = [...new Set(posts.flatMap((p) => (p.position ? [p.position.coin] : [])))].join(",");
-  useEffect(() => {
-    if (coins) void loadSparks(coins.split(","));
-  }, [coins]);
-  const seed = s.me?.user.handle ?? s.walletAddress?.slice(2) ?? "you";
+  const items = q.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
     <section className="view on" id="v-feed">
       <div className="feed-grid">
         <div>
-          <div className="page-head">
-            <div>
-              <h2>Feed</h2>
-              <p>Market ideas with the position attached. Cards come from the trader&apos;s account, not a screenshot.</p>
+          <div className="page-head afhead">
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <h2>Activity Feed</h2>
+              <select className="afkind" value={kind} onChange={(e) => setKind(e.target.value as Kind)} aria-label="Show">
+                {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
+                  <option key={k} value={k}>
+                    {KIND_LABEL[k]}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="seg">
-              <button className={scope === "all" ? "on" : ""} onClick={() => setScope("all")}>
-                For you
+              <button className={scope === "global" ? "on" : ""} onClick={() => setScope("global")}>
+                Global
               </button>
               <button
                 className={scope === "following" ? "on" : ""}
@@ -194,43 +330,34 @@ export function FeedView() {
               </button>
             </div>
           </div>
-          <div className="glass compose" style={{ marginBottom: 16 }}>
-            <div className="r">
-              <Avatar seed={seed} size={42} src={s.me?.user.avatarUrl} />
-              <textarea placeholder="What are you trading? Your latest open position gets attached automatically." />
-            </div>
-            <div className="bar2">
-              <span className="dim" style={{ fontSize: 12.5 }}>
-                No open position to attach
-              </span>
-              <button className="btn btn-brand" style={{ height: 38 }} onClick={() => (s.status === "ready" ? toast(SOON_SOCIAL) : openModal(s.status === "needsInvite" ? "invite" : "wallet"))}>
-                Post
-              </button>
-            </div>
-          </div>
-          {posts.length ? (
-            posts.map((p) => <Post key={p.id} post={p} now={now} />)
-          ) : (
-            <div className="glass">
-              <Empty icon={<Icon name="feed" size={22} />} title={scope === "following" ? "Your following feed is empty" : q.isLoading ? "Loading the feed…" : "No posts yet"}>
-                {scope === "following" ? "Follow traders from Rankings or the list on the right." : ""}
+          <div className="glass afeed">
+            <SummaryBar />
+            {items.length ? (
+              items.map((a) => (a.kind === "open" || a.kind === "close" ? <TradeItem key={a.id} a={a} now={now} /> : null))
+            ) : (
+              <Empty icon={<Icon name="feed" size={22} />} title={q.isLoading ? "Loading the feed…" : scope === "following" ? "Nothing from the traders you follow yet" : "No trades yet"}>
+                {q.isLoading ? "" : scope === "following" ? "Follow traders from Rankings or the suggestions on the right." : `Trades placed by ${BRAND} traders show up here within a minute.`}
               </Empty>
-            </div>
+            )}
+            {q.hasNextPage && (
+              <button className="btn btn-ghost afmore" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
+                {q.isFetchingNextPage ? "Loading…" : "Load more"}
+              </button>
+            )}
+          </div>
+          {q.isError && (
+            <p className="dim" style={{ fontSize: 13 }}>
+              Couldn&apos;t refresh the feed.{" "}
+              <button style={{ textDecoration: "underline", color: "inherit" }} onClick={() => void qc.invalidateQueries({ queryKey: ["activity", "feed"] })}>
+                Retry
+              </button>
+            </p>
           )}
         </div>
         <aside className="side-stack">
-          <div className="glass">
-            <div className="ph">
-              <h3>Who to follow</h3>
-            </div>
-            <WhoToFollow />
-          </div>
-          <div className="glass">
-            <div className="ph">
-              <h3>Trending markets</h3>
-            </div>
-            <Trending />
-          </div>
+          <SuggestedFollows />
+          <MarketNews now={now} />
+          <Trending />
         </aside>
       </div>
     </section>

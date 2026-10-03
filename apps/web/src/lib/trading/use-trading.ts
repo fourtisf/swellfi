@@ -26,7 +26,7 @@ import { HL } from "../env";
 import { useMarkets } from "../market";
 import { useSession } from "../session";
 import { createAgent, loadAgent } from "./agent-store";
-import { hlInfo, hlQueryKey, hlTransport, TRADING_NETWORK_OK, type HlAccount } from "./account";
+import { hlInfo, hlQueryKey, hlTransport, syncIndexer, TRADING_NETWORK_OK, type HlAccount } from "./account";
 
 export const ARB = BRIDGE[HL.network];
 export const arbPublic = createPublicClient({
@@ -174,6 +174,8 @@ export function useTrading(acct: HlAccount) {
       const ex = await requireAgent();
       const res = await ex.order(params);
       void refresh();
+      // Feed: don't wait for the fill to come back over the WebSocket (the user may leave the page).
+      syncIndexer();
       return summarizeStatuses(res.response.data.statuses);
     },
     [syncLeverage, ensureDexCollateral, requireAgent, refresh],
@@ -199,6 +201,7 @@ export function useTrading(acct: HlAccount) {
       const ex = await requireAgent();
       const res = await ex.order(buildClose({ market: m, szi: p.szi, mid, fraction, builder: HL.builder }));
       void refresh();
+      syncIndexer();
       return summarizeStatuses(res.response.data.statuses);
     },
     [requireAgent, refresh],

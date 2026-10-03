@@ -11,6 +11,7 @@ import {
   type ClearinghouseLike,
 } from "@swellfi/hl";
 import { useEffect, useMemo } from "react";
+import { api } from "../api";
 import { HL } from "../env";
 import { getSocket } from "../market";
 import { useSession } from "../session";
@@ -27,6 +28,19 @@ export const TRADING_NETWORK_OK = HL.network === HL.dataNetwork;
 const key = (...k: unknown[]) => ["hl", HL.network, ...k];
 
 /** The signed-in user's master address, if registered. */
+let lastSync = 0;
+/**
+ * Ask the server's indexer to poll this account now (best effort). Sent right away, never
+ * deferred on the client: a timer would die if the page navigates. Only a burst of messages for
+ * the same order within a second is collapsed; the server coalesces the rest without dropping.
+ * `keepalive` lets the request finish even if the user leaves the page right after trading.
+ */
+export function syncIndexer() {
+  if (Date.now() - lastSync < 1_000) return;
+  lastSync = Date.now();
+  void api("/me/sync", { method: "POST", keepalive: true }).catch(() => {});
+}
+
 export function useTraderAddress(): `0x${string}` | null {
   const s = useSession();
   return s.status === "ready" ? (s.me!.user.address as `0x${string}`) : null;
@@ -88,9 +102,15 @@ export function useHlAccount() {
         void qc.invalidateQueries({ queryKey: key("fills", user) });
       }, 400);
     };
+    // New fills (Hyperliquid flags the history sent on subscribe as a snapshot): tell the indexer
+    // so the feed picks the trade up now instead of on its next scheduled poll.
+    const onFills = (msg: { data?: unknown }) => {
+      bump();
+      if (!(msg.data as { isSnapshot?: boolean } | undefined)?.isSnapshot) syncIndexer();
+    };
     const s = getSocket();
     const off1 = s.subscribe({ type: "orderUpdates", user }, bump);
-    const off2 = s.subscribe({ type: "userFills", user }, bump);
+    const off2 = s.subscribe({ type: "userFills", user }, onFills);
     return () => {
       off1();
       off2();

@@ -28,20 +28,22 @@ model User {
   termsAcceptedAt DateTime?
   createdAt       DateTime  @default(now())
 
-  referredBy  User?          @relation("Referrals", fields: [referredById], references: [id])
-  referrals   User[]         @relation("Referrals")
-  fills       Fill[]
-  stats       DailyStat[]
-  posts       Post[]
-  likes       Like[]
-  watchlist   WatchItem[]
-  chat        ChatMessage[]
-  activity    Activity[]
-  rewards     RewardLedger[]
-  followers   Follow[]       @relation("following")
-  following   Follow[]       @relation("follower")
-  managedFund Fund[]
-  avatar      Avatar?
+  referredBy    User?          @relation("Referrals", fields: [referredById], references: [id])
+  referrals     User[]         @relation("Referrals")
+  fills         Fill[]
+  stats         DailyStat[]
+  posts         Post[]
+  likes         Like[]
+  watchlist     WatchItem[]
+  chat          ChatMessage[]
+  activity      Activity[]
+  rewards       RewardLedger[]
+  followers     Follow[]       @relation("following")
+  following     Follow[]       @relation("follower")
+  managedFund   Fund[]
+  avatar        Avatar?
+  activityLikes ActivityLike[]
+  indexState    IndexState?
 }
 
 /// Profile picture uploaded by the user (small WebP/PNG/JPEG, served from /api/avatars/:userId).
@@ -99,11 +101,14 @@ model Fill {
   builderFee Decimal? @db.Decimal(30, 10)
   closedPnl  Decimal  @db.Decimal(30, 10)
   dir        String // "Open Long", "Close Short", ...
+  oid        BigInt? // Hyperliquid order id: fills of one order become one feed event
+  startPos   Decimal? @db.Decimal(30, 10) // position size before the fill (splits flips)
   time       DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, time])
+  @@index([userId, oid])
   @@index([time])
 }
 
@@ -186,15 +191,43 @@ model RewardLedger {
 }
 
 model Activity {
-  id        String   @id @default(cuid())
+  id        String   @id @default(cuid()) // indexer events: fill:<userId>:<oid>:<open|close>
   userId    String
   kind      String // open | close | verify | follow | fund
   data      Json
+  likes     Int      @default(0)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likedBy ActivityLike[]
 
   @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model ActivityLike {
+  userId     String
+  activityId String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@id([userId, activityId])
+}
+
+/// Indexer progress per user (Hyperliquid fills already stored, last equity snapshot).
+model IndexState {
+  userId     String    @id
+  fillCursor BigInt    @default(0) // time (ms) of the newest stored fill
+  backfilled Boolean   @default(false)
+  equityAt   DateTime?
+  nextPollAt DateTime  @default(now())
+  idleStreak Int       @default(0)
+  lastError  String?
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([nextPollAt])
 }
 
 // Phase 4: funds are native Hyperliquid vaults. We keep listing metadata here and a

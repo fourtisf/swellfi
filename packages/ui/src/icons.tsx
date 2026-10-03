@@ -18,6 +18,7 @@ const IC = {
   heart:
     '<path d="M12 20s-7.5-4.6-9-9.3C1.9 7.2 4 4 7.3 4c2 0 3.4 1.2 4.7 3 1.3-1.8 2.7-3 4.7-3C20 4 22.1 7.2 21 10.7 19.5 15.4 12 20 12 20z"/>',
   reply: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v4"/>',
+  share: '<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
   copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   wallet: '<path d="M3 7a2 2 0 0 1 2-2h13v4"/><rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="16.5" cy="13.5" r="1.4"/>',

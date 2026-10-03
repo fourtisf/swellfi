@@ -19,6 +19,15 @@ const schema = z.object({
   /** HMAC secret for wallet sign-in sessions (≥ 32 chars). Required in production. */
   SESSION_SECRET: z.string().default(""),
   NEXT_PUBLIC_HL_NETWORK: z.enum(["testnet", "mainnet"]).default("testnet"),
+  NEXT_PUBLIC_HL_DATA_NETWORK: z.string().optional(),
+  NEXT_PUBLIC_HL_INFO_URL: z.string().optional(),
+  NEXT_PUBLIC_HL_HIP3_DEXES: z.string().default(""),
+  /** Indexer: Hyperliquid /info URL override (else the trading network's public API). */
+  INDEXER_INFO_URL: z.string().optional(),
+  /** Indexer: max Hyperliquid info requests per minute (each costs ~20 of the 1200/min IP budget). */
+  INDEXER_RPM: z.coerce.number().int().min(1).default(40),
+  /** News panel sources: "Name|https://feed,Name|https://feed". Defaults to CoinDesk, Decrypt, Cointelegraph. */
+  NEWS_FEEDS: z.string().optional(),
   NEXT_PUBLIC_BRAND_NAME: z.string().default("Swellfi"),
   INVITE_ONLY: bool.default("true"),
   ADMIN_ADDRESSES: z

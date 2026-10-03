@@ -68,22 +68,6 @@ export async function socialRoutes(app: FastifyInstance, ctx: AppContext) {
     return { tf: q.tf, rows: rows.map((r) => ({ ...r, isFollowing: following.has(r.user.id) })) };
   });
 
-  app.get("/activity", async (req) => {
-    const q = z.object({ cursor: cursorSchema, limit: limitSchema(50, 20) }).parse(req.query);
-    const items = await prisma.activity.findMany({
-      where: { user: { isPublic: true } },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: q.limit + 1,
-      ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
-      include: { user: true },
-    });
-    const page = items.slice(0, q.limit);
-    return {
-      items: page.map((a) => ({ id: a.id, kind: a.kind, user: publicUser(a.user), data: a.data, createdAt: a.createdAt })),
-      nextCursor: items.length > q.limit ? page[page.length - 1]!.id : null,
-    };
-  });
-
   app.get("/users/:handle", async (req) => {
     const { handle } = z.object({ handle: handleSchema }).parse(req.params);
     const user = await prisma.user.findUnique({ where: { handle }, include: { managedFund: { include: { manager: true }, take: 1 } } });
@@ -161,7 +145,7 @@ export async function socialRoutes(app: FastifyInstance, ctx: AppContext) {
       traders: rows
         .filter((r) => r.user.id !== me?.id)
         .slice(0, 5)
-        .map((r) => ({ user: r.user, roi7d: r.roi, isFollowing: following.has(r.user.id) })),
+        .map((r) => ({ user: r.user, roi7d: r.roi, equity: r.equity, isFollowing: following.has(r.user.id) })),
     };
   });
 

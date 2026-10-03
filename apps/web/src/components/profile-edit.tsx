@@ -60,6 +60,7 @@ export function EditProfileModal() {
   const me = s.me?.user;
   const [handle, setHandle] = useState("");
   const [bio, setBio] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
   const [picture, setPicture] = useState<string | null>(null); // new picture (data URL)
   const [removePic, setRemovePic] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -70,6 +71,7 @@ export function EditProfileModal() {
     if (!on || !me) return;
     setHandle(me.handle);
     setBio(me.bio ?? "");
+    setIsPublic(me.isPublic);
     setPicture(null);
     setRemovePic(false);
     setErr("");
@@ -79,7 +81,7 @@ export function EditProfileModal() {
   const h = handle.trim().toLowerCase();
   const hErr = h === me.handle ? null : handleError(h);
   const shown = picture ?? (removePic ? null : me.avatarUrl);
-  const dirty = h !== me.handle || bio.trim() !== (me.bio ?? "") || picture != null || removePic;
+  const dirty = h !== me.handle || bio.trim() !== (me.bio ?? "") || isPublic !== me.isPublic || picture != null || removePic;
 
   const pick = async (f: File | undefined) => {
     if (!f) return;
@@ -100,7 +102,7 @@ export function EditProfileModal() {
     setErr("");
     try {
       let user: PublicUser = me;
-      if (h !== me.handle || bio.trim() !== (me.bio ?? "")) user = (await api<{ user: PublicUser }>("/me/profile", { method: "POST", body: { handle: h, bio } })).user;
+      if (h !== me.handle || bio.trim() !== (me.bio ?? "") || isPublic !== me.isPublic) user = (await api<{ user: PublicUser }>("/me/profile", { method: "POST", body: { handle: h, bio, isPublic } })).user;
       if (picture) user = (await api<{ user: PublicUser }>("/me/avatar", { method: "POST", body: { image: picture } })).user;
       else if (removePic) user = (await api<{ user: PublicUser }>("/me/avatar", { method: "DELETE" })).user;
       await qc.invalidateQueries({ queryKey: ["me"] });
@@ -161,6 +163,12 @@ export function EditProfileModal() {
         </label>
         <textarea className="input pedit-bio" rows={3} value={bio} maxLength={BIO_MAX + 20} disabled={busy} placeholder="What do you trade? Tell people about your style." onChange={(e) => setBio(e.target.value)} />
       </div>
+      <label className="checkline" style={{ marginTop: 4 }}>
+        <input type="checkbox" checked={isPublic} disabled={busy} onChange={(e) => setIsPublic(e.target.checked)} />
+        <span>
+          <b style={{ color: "var(--text)" }}>Public profile</b>: show my trades in the feed and rankings. Turn off to keep your activity to yourself.
+        </span>
+      </label>
       {err && <p className="err">{err}</p>}
       <button className="btn btn-brand submit" disabled={busy || !dirty || Boolean(hErr) || bio.length > BIO_MAX} onClick={save}>
         {busy ? "Saving…" : "Save"}

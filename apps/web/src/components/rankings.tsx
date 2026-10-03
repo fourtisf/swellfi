@@ -89,7 +89,7 @@ export function RankingsView() {
                   <Sparkline data={t.series} width={110} height={32} fill={0.2} />
                 </td>
                 <td>
-                  <FollowButton following={t.isFollowing} />
+                  <FollowButton userId={t.user.id} following={t.isFollowing} />
                 </td>
               </tr>
             ))}

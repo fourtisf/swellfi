@@ -101,6 +101,8 @@ Then open http://localhost:3000.
 5. The TP fires.
 6. Withdraw.
 
+`e2e/feed.spec.ts` covers the activity feed end to end: a trade is picked up by the indexer (run it against the mock, see below), shows as "opened" and "closed", and a second trader likes it, follows, filters and uses Copy trade. `e2e/profile.spec.ts` covers editing the profile and the deposit/withdrawal history.
+
 `e2e/deposit-relay.spec.ts` covers deposits from other networks through Relay (the Relay API and the Base RPC are mocked in the browser). It needs a mainnet build (`NEXT_PUBLIC_HL_NETWORK=mainnet`), the mock in mainnet mode (`MOCK_HL_NETWORK=mainnet`), and `E2E_NETWORK=mainnet`; otherwise it is skipped.
 
 ```bash
@@ -109,6 +111,7 @@ NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://lo
 NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc NEXT_PUBLIC_BUILDER_ADDRESS=0x000000000000000000000000000000000000b0b1 \
   pnpm --filter @swellfi/web build
 pnpm --filter @swellfi/api build && pnpm start &   # API + web
+(cd apps/api && INDEXER_RPM=600 node --env-file=../../.env dist/indexer-main.js &)   # indexer, for feed.spec
 pnpm --filter @swellfi/web e2e                     # Playwright (set CHROMIUM_PATH if needed)
 ```
 
@@ -136,7 +139,19 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 
 - The agent key lives only in the browser. It is stored in IndexedDB, encrypted with a non-extractable AES-GCM key, and never sent to our API. It can trade but can't withdraw or transfer to anyone else.
 - Positions, open orders, order history, funding history and the Trading Account card come straight from Hyperliquid: `clearinghouseState` per dex, `frontendOpenOrders`, `historicalOrders`, `userFunding`, `userFills`. Data is polled and refreshed instantly on WS `orderUpdates` / `userFills`.
-- Builder revenue: each fill carries `builderFee` (already included in `fee`). The Phase 3 indexer writes it to `RewardLedger`.
+- Builder revenue: each fill carries `builderFee` (already included in `fee`). Writing it to `RewardLedger` is still to do.
+
+## Indexer and activity feed
+
+`apps/api/src/indexer` (PM2 app `swellfi-indexer`) is the only writer of `Fill`, trade `Activity` and `DailyStat`:
+
+- For every registered (non-demo) user it calls `userFillsByTime` from the stored cursor (30 days on the first run, pages of 2000), stores the fills and rebuilds one feed event per order and side: `fill:<userId>:<oid>:open|close`. Partial fills of an order converge to one event; a flip (`Long > Short`) is a close plus an open.
+- A close shows net PnL (closed PnL minus fees) and the entry price derived from it (`entry = exit ∓ closedPnl / size`). Spot fills are ignored. Leverage comes from `clearinghouseState` (remembered from the open for the close).
+- `DailyStat` per UTC day: PnL, volume, orders, closed orders, wins; equity from `clearinghouseState` (all dexes) and, on the first run, the `portfolio` month history. Funding isn't in PnL yet.
+- Scheduling: an account with new fills is polled again after 20 s; quiet ones back off 5 s, 15 s, 30 s, 1, 2, 4, 8 and at most 15 min. All requests share one token bucket (`INDEXER_RPM`, default 40/min), and a 429 pauses everything for a minute.
+- `POST /api/me/sync` (called by the web app when an order succeeds or a fill arrives) makes the indexer look at that account now. Limited per account: the first call in 10 s polls now, later ones are deferred to the window's end, never dropped. A poll that finishes never pushes back a sync that arrived while it ran.
+- Feed API: `GET /api/activity?scope=global|following&kind=all|trades|open|close`, likes (`POST/DELETE /api/activity/:id/like`), follows (`POST/DELETE /api/users/:id/follow`), `GET /api/news` (RSS, cached 10 min). Private accounts (`isPublic: false`, set in Edit profile) are left out of the feed and rankings.
+- "Copy trade" only fills in the order panel (market, side, leverage). The user still picks the size and confirms.
 
 ## Testnet runbook (Phase 2 acceptance)
 
@@ -195,10 +210,13 @@ sudo -u swellfi -H bash -lc 'cd /srv/swellfi && ./deploy/deploy.sh'   # pull →
 
 ### PM2
 
-`deploy/ecosystem.config.cjs` runs two processes:
+`deploy/ecosystem.config.cjs` runs three processes:
 
 - `swellfi-api`: `node --env-file=.env apps/api/dist/index.js`
+- `swellfi-indexer`: `node --env-file=.env apps/api/dist/indexer-main.js` (one instance only)
 - `swellfi-web`: `next start` on 127.0.0.1:3000
+
+`deploy.sh` uses `pm2 startOrReload`, so apps added to the file start on the next deploy.
 
 Useful commands: `pm2 logs`, `pm2 status`, `pm2 reload all`.
 

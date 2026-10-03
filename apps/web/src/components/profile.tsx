@@ -72,7 +72,7 @@ export function ProfileView({ handle }: { handle: string }) {
         </p>
       )}
       <div style={{ display: "flex", gap: 10 }}>
-        {!me && <FollowButton following={d.isFollowing} big />}
+        {!me && <FollowButton userId={d.user.id} following={d.isFollowing} big />}
         {me && (
           <button className="btn btn-brand" onClick={() => openModal("profile")}>
             <Icon name="pen" size={16} />

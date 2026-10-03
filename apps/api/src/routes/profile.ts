@@ -48,7 +48,7 @@ export async function profileRoutes(app: FastifyInstance, ctx: AppContext) {
 
   app.post("/me/profile", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
     const user = await ctx.requireUser(req);
-    const body = z.object({ handle: z.string().optional(), bio: z.string().max(1000).optional() }).parse(req.body);
+    const body = z.object({ handle: z.string().optional(), bio: z.string().max(1000).optional(), isPublic: z.boolean().optional() }).parse(req.body);
     const data: Prisma.UserUpdateInput = {};
     if (body.handle !== undefined) {
       const h = editHandleSchema.safeParse(body.handle);
@@ -60,9 +60,11 @@ export async function profileRoutes(app: FastifyInstance, ctx: AppContext) {
       if (!b.success) throw badRequest("BAD_BIO", b.error.issues[0]!.message);
       data.bio = b.data || null;
     }
+    // Private accounts are left out of the feed, rankings and public profile.
+    if (body.isPublic !== undefined && body.isPublic !== user.isPublic) data.isPublic = body.isPublic;
     try {
       const updated = Object.keys(data).length ? await prisma.user.update({ where: { id: user.id }, data }) : user;
-      return { user: publicUser(updated) };
+      return { user: { ...publicUser(updated), isPublic: updated.isPublic } };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw new HttpError(409, "HANDLE_TAKEN", "That username is already taken");
       throw e;
