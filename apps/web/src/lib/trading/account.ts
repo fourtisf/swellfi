@@ -11,6 +11,7 @@ import {
   type ClearinghouseLike,
 } from "@swellfi/hl";
 import { useEffect, useMemo } from "react";
+import { create } from "zustand";
 import { api } from "../api";
 import { HL } from "../env";
 import { getSocket } from "../market";
@@ -26,6 +27,11 @@ export const DEXES = ["", ...HL.hip3Dexes];
 export const TRADING_NETWORK_OK = HL.network === HL.dataNetwork;
 
 const key = (...k: unknown[]) => ["hl", HL.network, ...k];
+
+/** Hyperliquid approves a builder only while it holds this much perps account value (Spot doesn't count). */
+export const BUILDER_MIN_VALUE = 100;
+/** Set when Hyperliquid refused the builder approval for its balance, in case our read was stale. */
+export const useBuilderRefused = create<{ refused: boolean }>(() => ({ refused: false }));
 
 /** The signed-in user's master address, if registered. */
 let lastSync = 0;
@@ -80,6 +86,14 @@ export function useHlAccount() {
     refetchInterval: 30_000,
     queryFn: () => hlInfo.maxBuilderFee({ user: user!, builder: HL.builder.address as `0x${string}` }),
   });
+  // The builder's own perps account value: below the minimum nobody can approve it yet.
+  const builderValue = useQuery({
+    queryKey: key("builderValue"),
+    enabled: enabled && Boolean(HL.builder.address) && user?.toLowerCase() !== HL.builder.address,
+    refetchInterval: 60_000,
+    queryFn: async () => +(await hlInfo.clearinghouseState({ user: HL.builder.address as `0x${string}` })).marginSummary.accountValue,
+  });
+  const builderRefused = useBuilderRefused((s) => s.refused);
   const abstraction = useQuery({ queryKey: key("abstraction", user), enabled, staleTime: 60_000, queryFn: () => hlInfo.userAbstraction({ user: user! }) });
   const unified = abstraction.data === "unifiedAccount" || abstraction.data === "portfolioMargin";
   const spot = useQuery({
@@ -136,10 +150,14 @@ export function useHlAccount() {
 
   const now = Date.now();
   const agent = (agents.data ?? []).find((a) => a.name.split(" ")[0] === "swellfi" && (a.validUntil == null || a.validUntil > now)) ?? null;
-  // Trading from the builder wallet itself: there is no fee to approve (it would be paid to yourself),
-  // and Hyperliquid won't approve a builder without 100 USDC of perps account value anyway.
+  // Trading from the builder wallet itself: there is no fee to approve (it would be paid to yourself).
   const builderSelf = Boolean(user && HL.builder.address && user.toLowerCase() === HL.builder.address);
-  const builderApproved = builderSelf || (HL.builder.address ? (builderFee.data ?? 0) >= HL.builder.feeTenthsBps : false);
+  const builderFeeOn = !builderSelf && Boolean(HL.builder.address) && (builderFee.data ?? 0) >= HL.builder.feeTenthsBps;
+  // The builder can't be approved yet (under 100 USDC of perps value): trade without the platform
+  // fee rather than not at all. Once it's funded, the fee step comes back (one signature).
+  const builderUnfunded = !builderSelf && !builderFeeOn && (builderRefused || (builderValue.isSuccess && builderValue.data < BUILDER_MIN_VALUE));
+  /** The fee step of onboarding is done (approved, not needed, or not possible yet). */
+  const builderApproved = builderSelf || builderFeeOn || builderUnfunded;
 
   return {
     user,
@@ -152,7 +170,10 @@ export function useHlAccount() {
     agentOnChain: agent,
     builderApproved,
     builderSelf,
-    approvalsLoaded: agents.isSuccess && (builderFee.isSuccess || !HL.builder.address || builderSelf),
+    builderFeeOn,
+    builderUnfunded,
+    // A failed builder read counts as funded: the approval is tried and Hyperliquid decides.
+    approvalsLoaded: agents.isSuccess && (!HL.builder.address || builderSelf || (builderFee.isSuccess && !builderValue.isPending)),
     funded: summary.accountValue > 0 || summary.withdrawable > 0,
     refresh: () => qc.invalidateQueries({ queryKey: key() }),
   };

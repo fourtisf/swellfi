@@ -26,7 +26,7 @@ import { HL } from "../env";
 import { useMarkets } from "../market";
 import { useSession } from "../session";
 import { createAgent, loadAgent } from "./agent-store";
-import { hlInfo, hlQueryKey, hlTransport, syncIndexer, TRADING_NETWORK_OK, type HlAccount } from "./account";
+import { hlInfo, hlQueryKey, hlTransport, syncIndexer, TRADING_NETWORK_OK, useBuilderRefused, type HlAccount } from "./account";
 
 export const ARB = BRIDGE[HL.network];
 export const arbPublic = createPublicClient({
@@ -43,9 +43,9 @@ export function errMsg(e: unknown): string {
   return m.replace(/^.*?Error: /, "").slice(0, 200);
 }
 
-/** Orders from the builder wallet itself go out without the builder field (no fee to yourself). */
-function feeFor<T extends { builder?: unknown }>(params: T, self: boolean): T {
-  if (!self) return params;
+/** Orders carry the builder fee only when it's approved (not from the builder wallet itself, nor while the builder can't be approved). */
+function feeFor<T extends { builder?: unknown }>(params: T, feeOn: boolean): T {
+  if (feeOn) return params;
   const { builder: _, ...rest } = params;
   return rest as T;
 }
@@ -106,11 +106,17 @@ export function useTrading(acct: HlAccount) {
       const agent = await createAgent(HL.network, user, validUntil);
       await ex.approveAgent({ agentAddress: agent.address, agentName: agentNameWithExpiry(validUntil - AGENT_TTL_MS) });
     }
-    if (!acct.builderApproved && !acct.builderSelf) {
-      await ex.approveBuilderFee({ builder: HL.builder.address as `0x${string}`, maxFeeRate: builderMaxFeeRate(HL.builder.feeTenthsBps) });
+    if (!acct.builderApproved) {
+      try {
+        await ex.approveBuilderFee({ builder: HL.builder.address as `0x${string}`, maxFeeRate: builderMaxFeeRate(HL.builder.feeTenthsBps) });
+      } catch (e) {
+        // The builder isn't funded yet: trading still opens, without the platform fee.
+        if (!/builder has insufficient balance/i.test(e instanceof Error ? e.message : String(e))) throw e;
+        useBuilderRefused.setState({ refused: true });
+      }
     }
     await refresh();
-  }, [user, master, getAgent, acct.builderApproved, acct.builderSelf, refresh]);
+  }, [user, master, getAgent, acct.builderApproved, refresh]);
 
   /** USDC on Arbitrum → Bridge2. Resolves once the transfer is mined; credit is polled by the caller. */
   const deposit = useCallback(
@@ -177,7 +183,7 @@ export function useTrading(acct: HlAccount) {
 
   const placeOrder = useCallback(
     async (m: Market, intent: Omit<OrderIntent, "market" | "builder">, opts: { leverage: number; cross: boolean; margin: number }) => {
-      const params = feeFor(buildOrder({ ...intent, market: m, builder: HL.builder }), acct.builderSelf);
+      const params = feeFor(buildOrder({ ...intent, market: m, builder: HL.builder }), acct.builderFeeOn);
       await syncLeverage(m, opts.leverage, opts.cross);
       if (!intent.reduceOnly) await ensureDexCollateral(m, opts.margin);
       const ex = await requireAgent();
@@ -187,7 +193,7 @@ export function useTrading(acct: HlAccount) {
       syncIndexer();
       return summarizeStatuses(res.response.data.statuses);
     },
-    [syncLeverage, ensureDexCollateral, requireAgent, refresh, acct.builderSelf],
+    [syncLeverage, ensureDexCollateral, requireAgent, refresh, acct.builderFeeOn],
   );
 
   const cancel = useCallback(
@@ -208,12 +214,12 @@ export function useTrading(acct: HlAccount) {
       const mid = st.mids[p.coin];
       if (!m || !mid) throw new Error(`No price for ${p.coin}`);
       const ex = await requireAgent();
-      const res = await ex.order(feeFor(buildClose({ market: m, szi: p.szi, mid, fraction, builder: HL.builder }), acct.builderSelf));
+      const res = await ex.order(feeFor(buildClose({ market: m, szi: p.szi, mid, fraction, builder: HL.builder }), acct.builderFeeOn));
       void refresh();
       syncIndexer();
       return summarizeStatuses(res.response.data.statuses);
     },
-    [requireAgent, refresh, acct.builderSelf],
+    [requireAgent, refresh, acct.builderFeeOn],
   );
 
   return { enableTrading, deposit, withdraw, placeOrder, cancel, closePosition, getAgent };

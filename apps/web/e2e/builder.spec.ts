@@ -44,11 +44,8 @@ test("the builder wallet trades without paying a fee to itself", async ({ page }
   await expect(page.locator(".checklist")).toHaveCount(0, { timeout: 15_000 });
   expect((await mockState(wallet.address)).builders[BUILDER]).toBeUndefined(); // never approved itself
 
-  await page.locator(".otabs").getByRole("button", { name: "Market" }).click();
-  await page.locator(".tord .frow", { hasText: "Size" }).locator("input").fill("20");
-  await page.locator(".tord .bigbtn").click();
-  await expect(page.locator(".toast")).toContainText("Filled", { timeout: 20_000 });
-  const fill = (await mockState(wallet.address)).fills.at(-1);
+  await marketBuy(page);
+  const fill = (await mockState(wallet.address)).fills[0];
   expect(fill.coin).toBe("SOL");
   expect(fill.builderFee).toBeUndefined();
 
@@ -57,25 +54,62 @@ test("the builder wallet trades without paying a fee to itself", async ({ page }
   await expect(page.locator(".btabs")).not.toContainText(/Positions \(\d+\)/, { timeout: 20_000 });
 });
 
-// Empties the builder's balance for a moment, so other specs approving the builder at the same
-// time would fail: only runs when asked (E2E_BUILDER_BALANCE=1, this file alone).
-test("an unfunded builder: clear message, then trading opens once it is funded", async ({ page }, info) => {
-  test.skip(info.project.name !== "desktop" || !process.env.E2E_BUILDER_BALANCE, "set E2E_BUILDER_BALANCE=1 and run this file alone");
-  test.setTimeout(90_000);
-  await post("/__mock/usdc", { user: BUILDER, amount: 0 });
-  try {
-    const wallet = await onboard(page);
-    await page.locator(".tord").getByRole("button", { name: "Enable trading" }).click();
-    await expect(page.locator(".toast")).toContainText("Swellfi's fee wallet isn't active on Hyperliquid yet", { timeout: 20_000 });
-    await expect(page.locator(".checklist")).toBeVisible();
-    expect((await mockState(wallet.address)).agents).toHaveLength(1); // the trading key went through
+async function marketBuy(page: import("@playwright/test").Page) {
+  await page.locator(".otabs").getByRole("button", { name: "Market" }).click();
+  await page.locator(".tord .frow", { hasText: "Size" }).locator("input").fill("20");
+  await page.locator(".tord .bigbtn").click();
+  await expect(page.locator(".toast")).toContainText("Filled", { timeout: 20_000 });
+}
 
+// These empty the builder's balance for a while, so other specs approving the builder at the
+// same time would fail: they only run when asked (E2E_BUILDER_BALANCE=1, this file alone).
+test.describe("an unfunded builder", () => {
+  test.describe.configure({ mode: "serial" });
+  test.beforeEach(({}, info) => {
+    test.skip(info.project.name !== "desktop" || !process.env.E2E_BUILDER_BALANCE, "set E2E_BUILDER_BALANCE=1 and run this file alone");
+    test.setTimeout(90_000);
+  });
+  test.afterEach(async () => {
     await post("/__mock/usdc", { user: BUILDER, amount: 100 });
+  });
+
+  test("users still trade (without the fee); once it's funded the fee step comes back", async ({ page }) => {
+    await post("/__mock/price", { coin: "SOL", px: 200 });
+    await post("/__mock/usdc", { user: BUILDER, amount: 0 });
+    const wallet = await onboard(page);
     await page.locator(".tord").getByRole("button", { name: "Enable trading" }).click();
     await expect(page.locator(".toast")).toContainText("Trading enabled", { timeout: 20_000 });
     await expect(page.locator(".checklist")).toHaveCount(0, { timeout: 15_000 });
-    expect((await mockState(wallet.address)).builders[BUILDER]).toBe(50);
-  } finally {
+    let st = await mockState(wallet.address);
+    expect(st.agents).toHaveLength(1);
+    expect(st.builders[BUILDER]).toBeUndefined(); // no doomed approval request
+    await marketBuy(page);
+    expect((await mockState(wallet.address)).fills[0].builderFee).toBeUndefined();
+
+    // The builder gets funded: one more signature turns the fee on.
     await post("/__mock/usdc", { user: BUILDER, amount: 100 });
-  }
+    await page.reload();
+    await expect(page.locator(".checklist .ck").nth(2)).not.toHaveClass(/done/, { timeout: 15_000 });
+    await page.locator(".tord").getByRole("button", { name: "Enable trading" }).click();
+    await expect(page.locator(".toast")).toContainText("Trading enabled", { timeout: 20_000 });
+    await expect(page.locator(".checklist")).toHaveCount(0, { timeout: 15_000 });
+    st = await mockState(wallet.address);
+    expect(st.builders[BUILDER]).toBe(50);
+    expect(st.agents).toHaveLength(1); // the trading key was kept
+    await marketBuy(page);
+    expect(+(await mockState(wallet.address)).fills[0].builderFee).toBeGreaterThan(0);
+  });
+
+  test("Hyperliquid refuses the approval after a stale read: trading opens anyway", async ({ page }) => {
+    await post("/__mock/price", { coin: "SOL", px: 200 });
+    const wallet = await onboard(page);
+    await expect(page.locator(".tord").getByRole("button", { name: "Enable trading" })).toBeVisible({ timeout: 15_000 });
+    await post("/__mock/usdc", { user: BUILDER, amount: 0 }); // the page still thinks it's funded
+    await page.locator(".tord").getByRole("button", { name: "Enable trading" }).click();
+    await expect(page.locator(".toast")).toContainText("Trading enabled", { timeout: 20_000 });
+    await expect(page.locator(".checklist")).toHaveCount(0, { timeout: 15_000 });
+    expect((await mockState(wallet.address)).builders[BUILDER]).toBeUndefined();
+    await marketBuy(page);
+    expect((await mockState(wallet.address)).fills[0].builderFee).toBeUndefined();
+  });
 });

@@ -195,7 +195,8 @@ export function OrderPanel({ market }: { market: Market }) {
   const px = f.otype === "market" ? mid : parseFloat(f.px) || mid;
   const v = parseFloat(f.size) || 0;
   const margin = f.unit === "margin" ? v : f.unit === "usd" ? v / f.lev : (v * px) / f.lev;
-  const feeRate = acct.builderSelf ? 0 : BUILDER_RATE;
+  // Before the fee step the estimate shows the usual fee; after it, what orders will actually pay.
+  const feeRate = acct.builderFeeOn || !acct.builderApproved ? BUILDER_RATE : 0;
   const est = estimateOrder({ side: f.side, type: f.otype, px, margin, leverage: f.lev, maxLeverage: market.maxLev, builderRate: feeRate });
   const baseFee = f.otype === "limit" ? HL_FEES.maker : HL_FEES.taker;
   const available = acct.summary.withdrawable;

@@ -5,8 +5,8 @@
 //     phantom-agent EIP-712 over the msgpack action hash; user-signed actions: EIP-712 with
 //     HyperliquidSignTransaction domain), and the signer must be the user or an approved agent
 //   - orders must carry a builder the user approved (≥ the order's fee), except orders placed by
-//     the builder itself (MOCK_HL_BUILDER); a builder can only be approved while it holds at least
-//     100 USDC of perps account value (it starts with 100)
+//     the builder itself (MOCK_HL_BUILDER) or while the builder can't be approved; a builder can
+//     only be approved while it holds at least 100 USDC of perps account value (it starts with 100)
 //   - simple matching: IOC/market and crossing limits fill at mid, resting limits and triggers
 //     fill when the (mock) price crosses them; TP/SL children activate after the entry fills
 // Point the app at it with
@@ -358,8 +358,10 @@ async function exchange(body) {
     }
     case "order": {
       const b = action.builder;
-      // Only the builder's own orders may skip the fee (mock check: this deployment always charges it).
-      if (!b && a.user !== BUILDER) return err("Builder fee is required by this deployment (mock check)");
+      // Mock check of the app's fee policy (Hyperliquid itself accepts orders without a builder):
+      // only the builder's own orders, or any while the builder can't be approved, skip the fee.
+      const builderUnfunded = +clearinghouse(acct(BUILDER), "").marginSummary.accountValue < MIN_BUILDER_VALUE;
+      if (!b && a.user !== BUILDER && !builderUnfunded) return err("Builder fee is required by this deployment (mock check)");
       const approved = b && a.builders.get(b.b.toLowerCase());
       if (b && (approved == null || approved < b.f)) return err("Builder fee has not been approved.");
       const statuses = [];
