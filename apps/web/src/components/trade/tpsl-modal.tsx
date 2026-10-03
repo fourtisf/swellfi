@@ -2,14 +2,14 @@
 
 import { displayName } from "@swellfi/hl";
 import { fPct, fPx, fUsd, pxInput, sgn } from "@swellfi/ui";
-import { useEffect, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { useMarkets } from "@/lib/market";
 import type { HlAccount } from "@/lib/trading/account";
 import { errMsg, type useTrading } from "@/lib/trading/use-trading";
 import { openModal, toast, useUi } from "@/lib/ui-store";
 import { Modal } from "../modal";
+import { Portal } from "../portal";
 
 /** The position whose TP/SL the modal edits. */
 const useTarget = create<{ coin: string | null }>(() => ({ coin: null }));
@@ -45,13 +45,6 @@ export function tpslByCoin(orders: HlAccount["openOrders"]): Record<string, Tpsl
 const TP_PRESETS = [25, 50, 100];
 const SL_PRESETS = [10, 25, 50];
 const num = (v: string) => v.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
-
-/** Rendered at the document root, like the other modals, whatever panel opens it. */
-function Portal({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
-  return ready ? createPortal(children, document.body) : null;
-}
 
 export function TpslModal(props: { acct: HlAccount; trading: ReturnType<typeof useTrading>; tpsl: Record<string, TpslOrders> }) {
   return (

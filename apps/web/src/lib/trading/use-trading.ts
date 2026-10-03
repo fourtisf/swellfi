@@ -209,13 +209,13 @@ export function useTrading(acct: HlAccount) {
   );
 
   const closePosition = useCallback(
-    async (p: AccountPosition, fraction = 1) => {
+    async (p: AccountPosition, fraction = 1, limitPx?: number, size?: number) => {
       const st = useMarkets.getState();
       const m = st.byName[p.coin];
       const mid = st.mids[p.coin];
       if (!m || !mid) throw new Error(`No price for ${p.coin}`);
       const ex = await requireAgent();
-      const res = await ex.order(feeFor(buildClose({ market: m, szi: p.szi, mid, fraction, builder: HL.builder }), acct.builderFeeOn));
+      const res = await ex.order(feeFor(buildClose({ market: m, szi: p.szi, mid, fraction, size, limitPx, builder: HL.builder }), acct.builderFeeOn));
       void refresh();
       syncIndexer();
       return summarizeStatuses(res.response.data.statuses);

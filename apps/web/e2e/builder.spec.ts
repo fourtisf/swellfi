@@ -51,6 +51,7 @@ test("the builder wallet trades without paying a fee to itself", async ({ page }
 
   // Close it again so reruns start flat.
   await page.locator("#posBody").getByRole("button", { name: /^Close/ }).first().click();
+  await page.locator(".modal.on").getByRole("button", { name: "Close all at market" }).click();
   await expect(page.locator(".btabs")).not.toContainText(/Positions \(\d+\)/, { timeout: 20_000 });
 });
 

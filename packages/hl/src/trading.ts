@@ -140,12 +140,22 @@ export function buildOrder(i: OrderIntent): OrderParameters {
   return { orders: [entry, ...children], grouping: children.length ? "normalTpsl" : "na", builder };
 }
 
-/** Reduce-only IOC that closes (part of) a position at market. */
-export function buildClose(p: { market: Pick<Market, "name" | "assetId" | "szDecimals">; szi: number; mid: number; fraction?: number; slippage?: number; builder: Builder }): OrderParameters {
+/**
+ * Reduce-only order that closes (part of) a position: IOC at market, or a resting GTC limit at
+ * `limitPx`. A limit already through the market fills right away at that price or better.
+ */
+export function buildClose(p: { market: Pick<Market, "name" | "assetId" | "szDecimals">; szi: number; mid: number; fraction?: number; size?: number; slippage?: number; limitPx?: number; builder: Builder }): OrderParameters {
   const isBuy = p.szi < 0;
-  const size = Math.abs(p.szi) * (p.fraction ?? 1);
+  const f = p.fraction ?? 1;
+  if (!(f > 0 && f <= 1)) throw new OrderInputError("BAD_SIZE", "Choose how much of the position to close");
+  if (p.size != null && !(p.size > 0 && p.size <= Math.abs(p.szi) * (1 + 1e-9))) throw new OrderInputError("BAD_SIZE", "Choose how much of the position to close");
+  // Sizes are truncated to whole lots: nudge up by a hair so 0.0042 computed as 0.00419999…
+  // doesn't lose a lot (the nudge is far below one lot).
+  const size = (p.size ?? Math.abs(p.szi) * f) * (1 + 1e-9);
+  const limit = p.limitPx != null;
+  const price = limit ? px(p.limitPx!, p.market.szDecimals) : px(slippagePx(p.mid, isBuy, p.slippage ?? DEFAULT_SLIPPAGE), p.market.szDecimals);
   return {
-    orders: [{ a: p.market.assetId, b: isBuy, p: px(slippagePx(p.mid, isBuy, p.slippage ?? DEFAULT_SLIPPAGE), p.market.szDecimals), s: sz(size, p.market.szDecimals), r: true, t: { limit: { tif: "Ioc" } } }],
+    orders: [{ a: p.market.assetId, b: isBuy, p: price, s: sz(size, p.market.szDecimals), r: true, t: { limit: { tif: limit ? "Gtc" : "Ioc" } } }],
     grouping: "na",
     builder: builderParam(p.builder),
   };

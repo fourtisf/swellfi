@@ -9,6 +9,7 @@ import { useFills, useFundingHistory, useHlAccount, useOrderHistory } from "@/li
 import { errMsg, useTrading } from "@/lib/trading/use-trading";
 import { toast } from "@/lib/ui-store";
 import { LivePx } from "../live";
+import { CloseModal, openClose } from "./close-modal";
 import { openTpsl, TpslModal, tpslByCoin, type TpslOrders } from "./tpsl-modal";
 
 type Tab = "pos" | "open" | "twap" | "hist" | "fund";
@@ -34,7 +35,7 @@ const time = (t: number) => new Date(t).toLocaleString("en-US", { month: "short"
 /** Funding on a small position is fractions of a cent per hour: show those instead of "-$0.00". */
 const fFunding = (v: number) => (v !== 0 && Math.abs(v) < 0.01 ? fUsd(v, 4) : fUsd(v));
 
-function Positions({ positions, tpsl, onClose, busy }: { positions: AccountPosition[]; tpsl: Record<string, TpslOrders>; onClose(p: AccountPosition): void; busy: string | null }) {
+function Positions({ positions, tpsl }: { positions: AccountPosition[]; tpsl: Record<string, TpslOrders> }) {
   return (
     <table>
       <thead>
@@ -96,8 +97,8 @@ function Positions({ positions, tpsl, onClose, busy }: { positions: AccountPosit
                 </button>
               </td>
               <td>
-                <button className="follow" disabled={busy === p.coin} onClick={() => onClose(p)}>
-                  {busy === p.coin ? "Closing…" : "Close"}
+                <button className="follow" title="Close all or part, at market or limit" onClick={() => openClose(p.coin)}>
+                  Close
                 </button>
               </td>
             </tr>
@@ -153,7 +154,7 @@ export function BottomTabs() {
     );
   } else if (tab === "pos") {
     body = acct.positions.length ? (
-      <Positions positions={acct.positions} tpsl={tpsl} busy={busy} onClose={(p) => run(p.coin, () => trading.closePosition(p), (m) => `Close ${displayName(p.coin)}: ${m}`)} />
+      <Positions positions={acct.positions} tpsl={tpsl} />
     ) : (
       empty
     );
@@ -292,6 +293,7 @@ export function BottomTabs() {
   return (
     <div className="tbottom">
       {live && <TpslModal acct={acct} trading={trading} tpsl={tpsl} />}
+      {live && <CloseModal acct={acct} trading={trading} />}
       <div className="btabs">
         <div className="seg">
           {(Object.keys(LABELS) as Tab[]).map((k) => (

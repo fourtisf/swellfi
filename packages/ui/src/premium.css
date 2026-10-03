@@ -636,3 +636,7 @@ a.lp-chip:hover{border-color:var(--brand-line);background:var(--brand-soft)}
 .tpsl-clear:hover{color:var(--text);background:rgba(255,255,255,.06)}
 .tpsl-note{font-size:12px;line-height:1.5;margin:4px 0 14px}
 @media (max-width:520px){.tpsl-kv{grid-template-columns:repeat(2,1fr)}}
+/* Close position */
+.close-kind{display:flex;width:100%;margin:0 0 14px}.close-kind button{flex:1}
+.tpsl-presets .mini.on{color:var(--text);border-color:rgba(var(--brand-rgb),.6);background:rgba(var(--brand-rgb),.12)}
+.close-est{margin:2px 0 6px;font-weight:600;font-size:14px}.close-est small{font-weight:500}

@@ -79,6 +79,16 @@ describe("close / position TP-SL / statuses", () => {
     const o = buildClose({ market: BTC, szi: -0.5, mid: 100000, builder: BUILDER });
     expect(o.orders[0]).toMatchObject({ b: true, s: "0.5", r: true, p: "103000", t: { limit: { tif: "Ioc" } } });
     expect(buildClose({ market: BTC, szi: 0.5, mid: 100000, fraction: 0.5, builder: BUILDER }).orders[0]).toMatchObject({ b: false, s: "0.25" });
+    // limit close: resting GTC at the given price, reduce-only
+    expect(buildClose({ market: BTC, szi: 0.5, mid: 100000, fraction: 0.25, limitPx: 101234.56, builder: BUILDER }).orders[0]).toMatchObject({ b: false, p: "101230", s: "0.125", r: true, t: { limit: { tif: "Gtc" } } });
+    expect(() => buildClose({ market: BTC, szi: 0.5, mid: 100000, limitPx: 0, builder: BUILDER })).toThrow("valid price");
+    expect(() => buildClose({ market: BTC, szi: 0.5, mid: 100000, fraction: 0, builder: BUILDER })).toThrow("how much");
+    expect(() => buildClose({ market: BTC, szi: 0.5, mid: 100000, fraction: 0.000001, builder: BUILDER })).toThrow("minimum lot");
+    // explicit size in coin, kept exact through float noise; never more than the position
+    expect(buildClose({ market: BTC, szi: 0.0084, mid: 100000, size: 0.0084 * 0.5, builder: BUILDER }).orders[0]).toMatchObject({ s: "0.0042" });
+    expect(0.3 - 0.1).toBeLessThan(0.2); // float noise below the lot boundary
+    expect(buildClose({ market: BTC, szi: 0.5, mid: 100000, size: 0.3 - 0.1, builder: BUILDER }).orders[0]).toMatchObject({ s: "0.2" });
+    expect(() => buildClose({ market: BTC, szi: 0.0084, mid: 100000, size: 0.009, builder: BUILDER })).toThrow("how much");
   });
 
   it("builds positionTpsl sized to the position", () => {
