@@ -7,6 +7,7 @@ import {
   BRIDGE,
   buildClose,
   buildOrder,
+  buildPositionTpsl,
   builderMaxFeeRate,
   ERC20_ABI,
   masterExchange,
@@ -222,7 +223,32 @@ export function useTrading(acct: HlAccount) {
     [requireAgent, refresh, acct.builderFeeOn],
   );
 
-  return { enableTrading, deposit, withdraw, placeOrder, cancel, closePosition, getAgent };
+  /**
+   * Position TP/SL: places the new triggers first, then cancels the ones they replace, so a
+   * failed placement never leaves the position unprotected.
+   */
+  const setPositionTpsl = useCallback(
+    async (p: AccountPosition, place: { tp?: number; sl?: number }, cancelOids: number[]) => {
+      const m = useMarkets.getState().byName[p.coin];
+      if (!m) throw new Error(`Unknown market ${p.coin}`);
+      const ex = await requireAgent();
+      if (place.tp || place.sl) {
+        const res = await ex.order(feeFor(buildPositionTpsl({ market: m, szi: p.szi, tp: place.tp, sl: place.sl, builder: HL.builder }), acct.builderFeeOn));
+        summarizeStatuses(res.response.data.statuses);
+      }
+      try {
+        if (cancelOids.length) await ex.cancel({ cancels: cancelOids.map((o) => ({ a: m.assetId, o })) });
+      } catch (e) {
+        if (place.tp || place.sl) throw new Error(`The new TP/SL is set, but the old one couldn't be cancelled: ${errMsg(e)}. Cancel it under Open Orders.`);
+        throw e;
+      } finally {
+        void refresh();
+      }
+    },
+    [requireAgent, refresh, acct.builderFeeOn],
+  );
+
+  return { enableTrading, deposit, withdraw, placeOrder, cancel, closePosition, setPositionTpsl, getAgent };
 }
 
 export async function creditedBalance(user: `0x${string}`) {

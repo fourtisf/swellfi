@@ -141,7 +141,7 @@ function frontendOrder(o) {
   return {
     coin: o.coin, side: o.b ? "B" : "A", limitPx: o.p, sz: o.s, oid: o.oid, timestamp: o.time, origSz: o.s,
     triggerCondition: o.trigger ? `Price ${o.b === (o.trigger.tpsl === "sl") ? "above" : "below"} ${o.trigger.triggerPx}` : "N/A",
-    isTrigger: Boolean(o.trigger), triggerPx: o.trigger ? o.trigger.triggerPx : "0.0", children: [], isPositionTpsl: false,
+    isTrigger: Boolean(o.trigger), triggerPx: o.trigger ? o.trigger.triggerPx : "0.0", children: [], isPositionTpsl: Boolean(o.positionTpsl),
     reduceOnly: o.r, orderType, tif: o.tif ?? null, cloid: null,
   };
 }
@@ -379,13 +379,14 @@ async function exchange(body) {
         }
         if ("trigger" in w.t) {
           o.trigger = w.t.trigger;
+          o.positionTpsl = action.grouping === "positionTpsl";
           if (i > 0 && action.grouping === "normalTpsl") {
             o.parent = parent?.oid;
             o.active = Boolean(parent?.filled);
           }
           a.orders.push(o);
           record(a, o, "open");
-          statuses.push(i === 0 ? "waitingForTrigger" : "waitingForFill");
+          statuses.push(i === 0 || o.positionTpsl ? "waitingForTrigger" : "waitingForFill");
           if (i === 0) parent = o;
           continue;
         }

@@ -9,6 +9,7 @@ import { useFills, useFundingHistory, useHlAccount, useOrderHistory } from "@/li
 import { errMsg, useTrading } from "@/lib/trading/use-trading";
 import { toast } from "@/lib/ui-store";
 import { LivePx } from "../live";
+import { openTpsl, TpslModal, tpslByCoin, type TpslOrders } from "./tpsl-modal";
 
 type Tab = "pos" | "open" | "twap" | "hist" | "fund";
 const LABELS: Record<Tab, string> = { pos: "Positions", open: "Open Orders", twap: "TWAP", hist: "Order History", fund: "Funding History" };
@@ -33,7 +34,7 @@ const time = (t: number) => new Date(t).toLocaleString("en-US", { month: "short"
 /** Funding on a small position is fractions of a cent per hour: show those instead of "-$0.00". */
 const fFunding = (v: number) => (v !== 0 && Math.abs(v) < 0.01 ? fUsd(v, 4) : fUsd(v));
 
-function Positions({ positions, tpsl, onClose, busy }: { positions: AccountPosition[]; tpsl: Record<string, { tp?: string; sl?: string }>; onClose(p: AccountPosition): void; busy: string | null }) {
+function Positions({ positions, tpsl, onClose, busy }: { positions: AccountPosition[]; tpsl: Record<string, TpslOrders>; onClose(p: AccountPosition): void; busy: string | null }) {
   return (
     <table>
       <thead>
@@ -82,8 +83,17 @@ function Positions({ positions, tpsl, onClose, busy }: { positions: AccountPosit
               <td className={sgn(-p.cumFundingSinceOpen)} title="Funding since open: paid (−) or received (+). Hyperliquid settles it every hour.">
                 {fFunding(-p.cumFundingSinceOpen)}
               </td>
-              <td className="mut">
-                {t?.tp ? fPx(+t.tp) : "—"} / {t?.sl ? fPx(+t.sl) : "—"}
+              <td>
+                <button className="tpsl-btn" title="Set take profit / stop loss" onClick={() => openTpsl(p.coin)}>
+                  {t?.tp || t?.sl ? (
+                    <>
+                      <span className={t.tp ? "up" : "mut"}>{t.tp ? fPx(t.tp) : "—"}</span> / <span className={t.sl ? "dn" : "mut"}>{t.sl ? fPx(t.sl) : "—"}</span>
+                    </>
+                  ) : (
+                    <span className="mut">Add</span>
+                  )}
+                  <Icon name="pen" size={12} />
+                </button>
               </td>
               <td>
                 <button className="follow" disabled={busy === p.coin} onClick={() => onClose(p)}>
@@ -112,13 +122,7 @@ export function BottomTabs() {
   const funding = useFundingHistory(live && tab === "fund");
 
   // TP/SL triggers resting against each position.
-  const tpsl: Record<string, { tp?: string; sl?: string }> = {};
-  for (const o of acct.openOrders) {
-    if (!o.isTrigger || !o.reduceOnly) continue;
-    const e = (tpsl[o.coin] ??= {});
-    if (/take profit/i.test(o.orderType)) e.tp = o.triggerPx;
-    else if (/stop/i.test(o.orderType)) e.sl = o.triggerPx;
-  }
+  const tpsl = tpslByCoin(acct.openOrders);
 
   const run = async (id: string, fn: () => Promise<unknown>, ok: (r: unknown) => string) => {
     setBusy(id);
@@ -287,6 +291,7 @@ export function BottomTabs() {
 
   return (
     <div className="tbottom">
+      {live && <TpslModal acct={acct} trading={trading} tpsl={tpsl} />}
       <div className="btabs">
         <div className="seg">
           {(Object.keys(LABELS) as Tab[]).map((k) => (

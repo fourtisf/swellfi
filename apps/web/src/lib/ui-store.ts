@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 export type ToastKind = "ok" | "err" | "info";
-export type ModalName = "wallet" | "waitlist" | "invite" | "cmd" | "picker" | "deposit" | "withdraw" | "profile";
+export type ModalName = "wallet" | "waitlist" | "invite" | "cmd" | "picker" | "deposit" | "withdraw" | "profile" | "tpsl";
 
 interface UiState {
   modal: ModalName | null;
