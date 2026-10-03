@@ -76,7 +76,7 @@ export function useHlAccount() {
   const agents = useQuery({ queryKey: key("agents", user), enabled, refetchInterval: 30_000, queryFn: () => hlInfo.extraAgents({ user: user! }) });
   const builderFee = useQuery({
     queryKey: key("builderFee", user),
-    enabled: enabled && Boolean(HL.builder.address),
+    enabled: enabled && Boolean(HL.builder.address) && user?.toLowerCase() !== HL.builder.address,
     refetchInterval: 30_000,
     queryFn: () => hlInfo.maxBuilderFee({ user: user!, builder: HL.builder.address as `0x${string}` }),
   });
@@ -136,7 +136,10 @@ export function useHlAccount() {
 
   const now = Date.now();
   const agent = (agents.data ?? []).find((a) => a.name.split(" ")[0] === "swellfi" && (a.validUntil == null || a.validUntil > now)) ?? null;
-  const builderApproved = HL.builder.address ? (builderFee.data ?? 0) >= HL.builder.feeTenthsBps : false;
+  // Trading from the builder wallet itself: there is no fee to approve (it would be paid to yourself),
+  // and Hyperliquid won't approve a builder without 100 USDC of perps account value anyway.
+  const builderSelf = Boolean(user && HL.builder.address && user.toLowerCase() === HL.builder.address);
+  const builderApproved = builderSelf || (HL.builder.address ? (builderFee.data ?? 0) >= HL.builder.feeTenthsBps : false);
 
   return {
     user,
@@ -148,7 +151,8 @@ export function useHlAccount() {
     unified,
     agentOnChain: agent,
     builderApproved,
-    approvalsLoaded: agents.isSuccess && (builderFee.isSuccess || !HL.builder.address),
+    builderSelf,
+    approvalsLoaded: agents.isSuccess && (builderFee.isSuccess || !HL.builder.address || builderSelf),
     funded: summary.accountValue > 0 || summary.withdrawable > 0,
     refresh: () => qc.invalidateQueries({ queryKey: key() }),
   };

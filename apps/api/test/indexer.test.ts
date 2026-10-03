@@ -226,4 +226,21 @@ describe("indexer", () => {
     expect(next).toBeGreaterThan(5_000);
     expect(next).toBeLessThanOrEqual(10_000);
   });
+
+  it("keeps both sides when two Swellfi users trade against each other", async () => {
+    const erin = (await t.prisma.user.findUnique({ where: { address: ERIN } }))!;
+    const frank = (await t.prisma.user.findUnique({ where: { address: FRANK } }))!;
+    const time = Date.now() + 60_000; // after both cursors
+    const buy = fill({ coin: "SOL", px: "200", sz: "1", dir: "Open Long", oid: 801, time });
+    const sell = { ...buy, side: "A" as const, dir: "Open Short", oid: 802 }; // same hash and tid
+    const hl = new FakeHl();
+    const ix = createIndexer({ prisma: t.prisma, redis: t.redis, info: hl, rpm: 1000, log: () => {} });
+    hl.fills = [buy];
+    expect(await ix.pollUser({ id: erin.id, address: ERIN })).toBe(1);
+    hl.fills = [sell];
+    expect(await ix.pollUser({ id: frank.id, address: FRANK })).toBe(1);
+    expect(await t.prisma.fill.count({ where: { hash: buy.hash } })).toBe(2);
+    const acts = await t.prisma.activity.findMany({ where: { id: { in: [`fill:${erin.id}:801:open`, `fill:${frank.id}:802:open`] } } });
+    expect(acts.map((a) => (a.data as { side: string }).side).sort()).toEqual(["long", "short"]);
+  });
 });

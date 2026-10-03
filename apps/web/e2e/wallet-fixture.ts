@@ -7,8 +7,8 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
  * keys and signing live in the test process (viem local account). Sends go to the mock
  * Arbitrum RPC.
  */
-export async function installTestWallet(page: Page, rpcUrl: string) {
-  const account = privateKeyToAccount(generatePrivateKey());
+export async function installTestWallet(page: Page, rpcUrl: string, privateKey: `0x${string}` = generatePrivateKey()) {
+  const account = privateKeyToAccount(privateKey);
   let chainId = 1;
 
   const rpc = async (method: string, params: unknown[]) => {

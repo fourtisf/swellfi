@@ -195,7 +195,8 @@ export function OrderPanel({ market }: { market: Market }) {
   const px = f.otype === "market" ? mid : parseFloat(f.px) || mid;
   const v = parseFloat(f.size) || 0;
   const margin = f.unit === "margin" ? v : f.unit === "usd" ? v / f.lev : (v * px) / f.lev;
-  const est = estimateOrder({ side: f.side, type: f.otype, px, margin, leverage: f.lev, maxLeverage: market.maxLev, builderRate: BUILDER_RATE });
+  const feeRate = acct.builderSelf ? 0 : BUILDER_RATE;
+  const est = estimateOrder({ side: f.side, type: f.otype, px, margin, leverage: f.lev, maxLeverage: market.maxLev, builderRate: feeRate });
   const baseFee = f.otype === "limit" ? HL_FEES.maker : HL_FEES.taker;
   const available = acct.summary.withdrawable;
   const live = s.status === "ready";
@@ -473,7 +474,7 @@ export function OrderPanel({ market }: { market: Market }) {
         </div>
         <div>
           <span>Fees</span>
-          <span title={`Hyperliquid ${pct(baseFee)} + ${pct(BUILDER_RATE)} platform fee`}>{est.notional ? fUsd(est.fee) : `${pct(baseFee)} + ${pct(BUILDER_RATE)}`}</span>
+          <span title={`Hyperliquid ${pct(baseFee)} + ${pct(feeRate)} platform fee`}>{est.notional ? fUsd(est.fee) : `${pct(baseFee)} + ${pct(feeRate)}`}</span>
         </div>
       </div>
       {blocker ? (

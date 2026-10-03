@@ -4,13 +4,16 @@
 //   - every /exchange request is signature-checked exactly like Hyperliquid does (L1 actions:
 //     phantom-agent EIP-712 over the msgpack action hash; user-signed actions: EIP-712 with
 //     HyperliquidSignTransaction domain), and the signer must be the user or an approved agent
-//   - orders must carry a builder the user approved (≥ the order's fee)
+//   - orders must carry a builder the user approved (≥ the order's fee), except orders placed by
+//     the builder itself (MOCK_HL_BUILDER); a builder can only be approved while it holds at least
+//     100 USDC of perps account value (it starts with 100)
 //   - simple matching: IOC/market and crossing limits fill at mid, resting limits and triggers
 //     fill when the (mock) price crosses them; TP/SL children activate after the entry fills
 // Point the app at it with
 //   NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://localhost:4100/ws
 //   NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc
-// Test hooks: POST /__mock/price {coin, px}, POST /__mock/deposit {user, amount}, GET /__mock/state
+// Test hooks: POST /__mock/price {coin, px}, POST /__mock/deposit {user, amount},
+//   POST /__mock/usdc {user, amount} (sets the main-dex balance), GET /__mock/state
 import http from "node:http";
 import { createL1ActionHash } from "@nktkas/hyperliquid/signing";
 import { decodeFunctionData, keccak256, recoverTypedDataAddress, toHex } from "viem";
@@ -22,6 +25,8 @@ const ARB_CHAIN_ID = IS_TESTNET ? 421614 : 42161;
 const BRIDGE = (IS_TESTNET ? "0x08cfc1B6b2dCF36A1480b99353A354AA8AC56f89" : "0x2df1c51e09aecf9cacb7bc98cb1742757f163df7").toLowerCase();
 const USDC = (IS_TESTNET ? "0x1baAbB04529D43a73232B713C0FE471f7c7334d5" : "0xaf88d065e77c8cC2239327C5EDb3A432268e5831").toLowerCase();
 const FEES = { taker: 0.00045, maker: 0.00015 };
+const BUILDER = (process.env.MOCK_HL_BUILDER || "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").toLowerCase();
+const MIN_BUILDER_VALUE = 100;
 
 // ---------------- Markets ----------------
 // [name, px, maxLeverage, szDecimals]
@@ -77,8 +82,10 @@ function book(coin) {
 // ---------------- Accounts ----------------
 const accounts = new Map(); // user -> account
 const agentOwner = new Map(); // agent address -> user
-let nextOid = 1000;
-let nextTid = 1;
+// Start from the clock so ids (and fill hashes) never repeat across mock restarts, like on
+// Hyperliquid: the indexer deduplicates fills by them.
+let nextOid = Date.now();
+let nextTid = Date.now();
 const events = []; // { user, channel } for WS pushes
 
 function acct(user) {
@@ -86,6 +93,7 @@ function acct(user) {
   if (!accounts.has(u)) accounts.set(u, { user: u, usdc: { "": 0, xyz: 0 }, positions: new Map(), orders: [], fills: [], history: [], agents: [], builders: new Map(), leverage: new Map(), withdrawals: [], ledger: [] });
   return accounts.get(u);
 }
+acct(BUILDER).usdc[""] = MIN_BUILDER_VALUE;
 
 function upnl(p) {
   return p.szi * ((mids[p.coin] ?? p.entryPx) - p.entryPx);
@@ -308,6 +316,7 @@ async function exchange(body) {
     case "approveBuilderFee": {
       const pct = Number(String(action.maxFeeRate).replace("%", ""));
       if (!(pct >= 0) || pct > 0.1) return err("Invalid max fee rate");
+      if (+clearinghouse(acct(action.builder), "").marginSummary.accountValue < MIN_BUILDER_VALUE) return err("Builder has insufficient balance to be approved.");
       a.builders.set(action.builder.toLowerCase(), Math.round(pct * 1000));
       return ok();
     }
@@ -349,9 +358,10 @@ async function exchange(body) {
     }
     case "order": {
       const b = action.builder;
-      if (!b) return err("Builder fee is required by this deployment (mock check)");
-      const approved = a.builders.get(b.b.toLowerCase());
-      if (approved == null || approved < b.f) return err("Builder fee has not been approved.");
+      // Only the builder's own orders may skip the fee (mock check: this deployment always charges it).
+      if (!b && a.user !== BUILDER) return err("Builder fee is required by this deployment (mock check)");
+      const approved = b && a.builders.get(b.b.toLowerCase());
+      if (b && (approved == null || approved < b.f)) return err("Builder fee has not been approved.");
       const statuses = [];
       let parent = null;
       for (const [i, w] of action.orders.entries()) {
@@ -565,6 +575,10 @@ const server = http.createServer(async (req, res) => {
       mids[body.coin] = body.px;
       pinned.add(body.coin);
       match();
+      return send(res, 200, { ok: true });
+    }
+    if (req.url === "/__mock/usdc") {
+      acct(body.user).usdc[""] = Number(body.amount);
       return send(res, 200, { ok: true });
     }
     if (req.url === "/__mock/deposit") {

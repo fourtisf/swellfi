@@ -6,7 +6,7 @@ import { installTestWallet } from "./wallet-fixture";
 // market buy with TP → TP triggers → withdraw. Desktop only.
 const MOCK = process.env.MOCK_HL_URL ?? "http://localhost:4100";
 const INVITE = process.env.E2E_INVITE_CODE ?? "SWELL-ALPHA";
-const BUILDER = (process.env.NEXT_PUBLIC_BUILDER_ADDRESS ?? "0x000000000000000000000000000000000000b0b1").toLowerCase();
+const BUILDER = (process.env.NEXT_PUBLIC_BUILDER_ADDRESS ?? "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").toLowerCase();
 
 const setPrice = (coin: string, px: number) => fetch(`${MOCK}/__mock/price`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ coin, px }) });
 const mockState = async (user: string) => ((await (await fetch(`${MOCK}/__mock/state`)).json()) as Record<string, any>)[user.toLowerCase()]; // eslint-disable-line @typescript-eslint/no-explicit-any

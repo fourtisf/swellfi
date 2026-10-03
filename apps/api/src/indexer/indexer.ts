@@ -117,7 +117,7 @@ export function createIndexer(o: IndexerOptions) {
     if (!fills.length) return 0;
     const r = await prisma.fill.createMany({
       data: fills.map((f) => ({
-        id: fillId(f),
+        id: fillId(userId, f),
         hash: f.hash,
         userId,
         coin: f.coin,
@@ -149,7 +149,7 @@ export function createIndexer(o: IndexerOptions) {
     hash: r.hash,
     oid: Number(r.oid ?? 0),
     fee: r.fee.toString(),
-    tid: Number(r.id.split(":")[1] ?? 0),
+    tid: Number(r.id.split(":").at(-1) ?? 0),
   });
 
   /** Rebuild the feed events of these orders from every stored fill (partial fills converge). */

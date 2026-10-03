@@ -19,7 +19,9 @@ export interface HlFill {
   liquidation?: unknown;
 }
 
-export const fillId = (f: Pick<HlFill, "hash" | "tid">) => `${f.hash}:${f.tid}`;
+// Per user: when two Swellfi users trade against each other, both of their fills carry the
+// same hash and tid.
+export const fillId = (userId: string, f: Pick<HlFill, "hash" | "tid">) => `${userId}:${f.hash}:${f.tid}`;
 
 /** Spot fills ("@107", "PURR/USDC") aren't perp trades and stay out of the feed. */
 export const isPerp = (coin: string) => !coin.startsWith("@") && !coin.includes("/");

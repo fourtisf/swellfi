@@ -54,7 +54,7 @@ Then open http://localhost:3000.
 | `NEXT_PUBLIC_HL_DATA_NETWORK` | Optional. Market data from another network (e.g. mainnet prices in a demo) |
 | `NEXT_PUBLIC_HL_HIP3_DEXES` | HIP-3 dexes to list, e.g. `xyz` (stocks and commodities) |
 | `NEXT_PUBLIC_HL_INFO_URL`, `NEXT_PUBLIC_HL_WS_URL` | Optional overrides (local mock, own node) |
-| `NEXT_PUBLIC_BUILDER_ADDRESS`, `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` | Builder code. `50` = 0.05%; the perps max is `100`. **Trading is disabled until the address is set.** The builder wallet needs ≥ 100 USDC perps account value |
+| `NEXT_PUBLIC_BUILDER_ADDRESS`, `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` | Builder code. `50` = 0.05%; the perps max is `100`. **Trading is disabled until the address is set.** Hyperliquid only lets users approve a builder that holds ≥ 100 USDC of **perps** account value (Spot doesn't count, so neither does a unified account's balance); until then "Enable trading" fails with "Swellfi's fee wallet isn't active on Hyperliquid yet". Use a separate wallet that only collects fees. Orders placed from the builder wallet itself carry no builder fee |
 | `NEXT_PUBLIC_ARB_RPC_URL` | Optional Arbitrum RPC for deposits. Defaults to the public RPC (Arbitrum One / Sepolia) |
 | `NEXT_PUBLIC_RPC_URLS` | Optional JSON of RPC URLs by chain id for the other deposit networks (mainnet). Defaults to public RPCs |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional WalletConnect project id (free, cloud.reown.com) for mobile wallets via QR code. Add the site's domain to the project's allowlist |
@@ -88,7 +88,7 @@ Then open http://localhost:3000.
 
 - Market data.
 - `/exchange` with **the same signature checks as Hyperliquid**: L1 actions must come from an approved agent; user-signed actions from the user.
-- Builder-fee approval enforcement.
+- Builder-fee approval enforcement, including Hyperliquid's 100 USDC minimum for the builder (`MOCK_HL_BUILDER`, default the first Hardhat/Anvil test address, starts with 100 USDC).
 - Order matching with TP/SL triggers.
 - Deposits through a mock Arbitrum RPC.
 
@@ -101,14 +101,14 @@ Then open http://localhost:3000.
 5. The TP fires.
 6. Withdraw.
 
-`e2e/feed.spec.ts` covers the activity feed end to end: a trade is picked up by the indexer (run it against the mock, see below), shows as "opened" and "closed", and a second trader likes it, follows, filters and uses Copy trade. `e2e/profile.spec.ts` covers editing the profile and the deposit/withdrawal history.
+`e2e/feed.spec.ts` covers the activity feed end to end: a trade is picked up by the indexer (run it against the mock, see below), shows as "opened" and "closed", and a second trader likes it, follows, filters and uses Copy trade. `e2e/profile.spec.ts` covers editing the profile and the deposit/withdrawal history. `e2e/builder.spec.ts` trades from the builder wallet (no fee to itself); its unfunded-builder test empties the builder's balance, so it only runs with `E2E_BUILDER_BALANCE=1` and on its own (`pnpm --filter @swellfi/web e2e builder.spec.ts`).
 
 `e2e/deposit-relay.spec.ts` covers deposits from other networks through Relay (the Relay API and the Base RPC are mocked in the browser). It needs a mainnet build (`NEXT_PUBLIC_HL_NETWORK=mainnet`), the mock in mainnet mode (`MOCK_HL_NETWORK=mainnet`), and `E2E_NETWORK=mainnet`; otherwise it is skipped.
 
 ```bash
 pnpm mock:hl &
 NEXT_PUBLIC_HL_INFO_URL=http://localhost:4100/info NEXT_PUBLIC_HL_WS_URL=ws://localhost:4100/ws \
-NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc NEXT_PUBLIC_BUILDER_ADDRESS=0x000000000000000000000000000000000000b0b1 \
+NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc NEXT_PUBLIC_BUILDER_ADDRESS=0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
   pnpm --filter @swellfi/web build
 pnpm --filter @swellfi/api build && pnpm start &   # API + web
 (cd apps/api && INDEXER_RPM=600 node --env-file=../../.env dist/indexer-main.js &)   # indexer, for feed.spec
@@ -134,7 +134,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 | Deposit | Master wallet (Privy embedded or external) | USDC `transfer` on Arbitrum to Hyperliquid's Bridge2. The modal enforces the **5 USDC minimum**, shows the tx, then polls until Hyperliquid credits it |
 | Deposit (other networks, mainnet) | Master wallet, on the origin chain | USDC, USDT or the native coin on Arbitrum, Ethereum, Base, Optimism, BNB Chain, Polygon or Avalanche, routed by [Relay](https://relay.link) into the user's own HyperCore perps USDC (Relay chain 1337). The quote is shown first and checked before signing: it must end as perps USDC on HyperCore, with the user as recipient, from the selected token |
 | Enable trading | Master wallet | `approveAgent`: a fresh agent key, generated in the browser, named `swellfi`, valid 90 days. Then `approveBuilderFee` for the configured builder at `NEXT_PUBLIC_BUILDER_FEE_TENTHS_BPS` |
-| Orders, cancels, leverage, close | **Agent key** (no wallet popup) | `order` with the builder object on every order; `cancel`; `updateLeverage` (cross/isolated) before an order when it changed; close = reduce-only IOC. For HIP-3 markets, collateral moves to that dex with `agentSendAsset` (same user only) |
+| Orders, cancels, leverage, close | **Agent key** (no wallet popup) | `order` with the builder object on every order (except from the builder wallet itself); `cancel`; `updateLeverage` (cross/isolated) before an order when it changed; close = reduce-only IOC. For HIP-3 markets, collateral moves to that dex with `agentSendAsset` (same user only) |
 | Withdraw | Master wallet | `withdraw3` to the user's own address. The 1 USDC Hyperliquid fee is shown before signing |
 
 - The agent key lives only in the browser. It is stored in IndexedDB, encrypted with a non-extractable AES-GCM key, and never sent to our API. It can trade but can't withdraw or transfer to anyone else.

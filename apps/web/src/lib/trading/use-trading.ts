@@ -38,7 +38,16 @@ export const arbPublic = createPublicClient({
 export function errMsg(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e);
   if (/user rejected|denied|rejected the request/i.test(m)) return "Signature request was cancelled";
+  // Hyperliquid only approves a builder that holds 100+ USDC in perps: a platform setup issue, not the user's.
+  if (/builder has insufficient balance/i.test(m)) return "Swellfi's fee wallet isn't active on Hyperliquid yet. Nothing was charged; please try again later.";
   return m.replace(/^.*?Error: /, "").slice(0, 200);
+}
+
+/** Orders from the builder wallet itself go out without the builder field (no fee to yourself). */
+function feeFor<T extends { builder?: unknown }>(params: T, self: boolean): T {
+  if (!self) return params;
+  const { builder: _, ...rest } = params;
+  return rest as T;
 }
 
 const leverageSynced = new Map<string, string>();
@@ -97,11 +106,11 @@ export function useTrading(acct: HlAccount) {
       const agent = await createAgent(HL.network, user, validUntil);
       await ex.approveAgent({ agentAddress: agent.address, agentName: agentNameWithExpiry(validUntil - AGENT_TTL_MS) });
     }
-    if (!acct.builderApproved) {
+    if (!acct.builderApproved && !acct.builderSelf) {
       await ex.approveBuilderFee({ builder: HL.builder.address as `0x${string}`, maxFeeRate: builderMaxFeeRate(HL.builder.feeTenthsBps) });
     }
     await refresh();
-  }, [user, master, getAgent, acct.builderApproved, refresh]);
+  }, [user, master, getAgent, acct.builderApproved, acct.builderSelf, refresh]);
 
   /** USDC on Arbitrum → Bridge2. Resolves once the transfer is mined; credit is polled by the caller. */
   const deposit = useCallback(
@@ -168,7 +177,7 @@ export function useTrading(acct: HlAccount) {
 
   const placeOrder = useCallback(
     async (m: Market, intent: Omit<OrderIntent, "market" | "builder">, opts: { leverage: number; cross: boolean; margin: number }) => {
-      const params = buildOrder({ ...intent, market: m, builder: HL.builder });
+      const params = feeFor(buildOrder({ ...intent, market: m, builder: HL.builder }), acct.builderSelf);
       await syncLeverage(m, opts.leverage, opts.cross);
       if (!intent.reduceOnly) await ensureDexCollateral(m, opts.margin);
       const ex = await requireAgent();
@@ -178,7 +187,7 @@ export function useTrading(acct: HlAccount) {
       syncIndexer();
       return summarizeStatuses(res.response.data.statuses);
     },
-    [syncLeverage, ensureDexCollateral, requireAgent, refresh],
+    [syncLeverage, ensureDexCollateral, requireAgent, refresh, acct.builderSelf],
   );
 
   const cancel = useCallback(
@@ -199,12 +208,12 @@ export function useTrading(acct: HlAccount) {
       const mid = st.mids[p.coin];
       if (!m || !mid) throw new Error(`No price for ${p.coin}`);
       const ex = await requireAgent();
-      const res = await ex.order(buildClose({ market: m, szi: p.szi, mid, fraction, builder: HL.builder }));
+      const res = await ex.order(feeFor(buildClose({ market: m, szi: p.szi, mid, fraction, builder: HL.builder }), acct.builderSelf));
       void refresh();
       syncIndexer();
       return summarizeStatuses(res.response.data.statuses);
     },
-    [requireAgent, refresh],
+    [requireAgent, refresh, acct.builderSelf],
   );
 
   return { enableTrading, deposit, withdraw, placeOrder, cancel, closePosition, getAgent };
