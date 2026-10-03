@@ -281,12 +281,23 @@ export function BottomTabs() {
   const a = fills.analytics;
   const ana: [string, ReactNode][] = live
     ? [
-        ["Realized PnL", <span key="r" className={sgn(a.realized)}>{fUsd(a.realized)}</span>],
+        // Hyperliquid's closedPnl is before fees: show what was actually made, with the gross beside it.
+        [
+          "Realized PnL",
+          <span key="r" title="Closed PnL minus all trading fees paid (funding not included)">
+            <span className={sgn(a.realized - a.fees)}>{fUsd(a.realized - a.fees)}</span> <small className="dim ana-sub">{fUsd(a.realized)} before fees</small>
+          </span>,
+        ],
         ["Win rate", a.winRate == null ? "—" : `${a.winRate.toFixed(0)}%`],
         ["Closed trades", a.closed],
         ["Best trade", a.best ? <span key="b" className="up">{fUsd(a.best)}</span> : "—"],
         ["Volume", fUsd(a.volume)],
-        ["Fees paid", fUsd(a.fees)],
+        [
+          "Fees paid",
+          <span key="f" title="Hyperliquid fee (0.045% taker, 0.015% maker) plus the platform fee, as a share of volume">
+            {fUsd(a.fees)} {a.volume > 0 && <small className="dim ana-sub">{((a.fees / a.volume) * 100).toFixed(3)}% of volume</small>}
+          </span>,
+        ],
       ]
     : ["Realized PnL", "Win rate", "Closed trades", "Best trade", "Volume", "Fees paid"].map((k) => [k, "—"]);
 

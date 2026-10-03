@@ -259,6 +259,8 @@ export interface FillLike {
   closedPnl: string;
   fee: string;
   builderFee?: string;
+  /** "Open Long", "Close Short", "Long > Short", liquidations… */
+  dir?: string;
   time: number;
 }
 
@@ -277,7 +279,8 @@ export function fillAnalytics(fills: FillLike[]) {
     volume += +f.px * +f.sz;
     fees += +f.fee;
     builderFees += +(f.builderFee ?? 0);
-    if (pnl !== 0) {
+    // A close at exactly the entry price is still a closed trade (just not a win).
+    if (pnl !== 0 || /^Close|>|Liquidat/i.test(f.dir ?? "")) {
       closed++;
       if (pnl > 0) wins++;
       best = Math.max(best, pnl);

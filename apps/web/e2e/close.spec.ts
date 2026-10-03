@@ -80,6 +80,11 @@ test("close part at market, part with a limit, the rest with a marketable limit"
   await modal.getByRole("button", { name: "Place limit close (all)" }).click();
   await expect(page.locator(".toast")).toContainText("Close LINK: Filled 3.8", { timeout: 20_000 });
   await expect.poll(() => linkSize(wallet.address), { timeout: 15_000 }).toBe(0);
+  // Analytics: realized PnL after fees, with the gross and the fee rate beside it.
+  const ana = page.locator(".ana");
+  await expect(ana).toContainText("before fees", { timeout: 15_000 });
+  await expect(ana).toContainText("% of volume");
+  if (process.env.E2E_SHOTS) await page.locator(".tbottom").screenshot({ path: `${process.env.E2E_SHOTS}/analytics.png` });
   const fills = (await mockState(wallet.address)).fills as { coin: string; dir: string; sz: string; closedPnl: string }[];
   const closes = fills.filter((f) => f.coin === "LINK" && f.dir === "Close Long");
   // 2.5 at 20 (flat), 3.7 at the 21 limit (+3.70), 3.8 at 21.2: the limit at 20.5 filled at the better price (+4.56).

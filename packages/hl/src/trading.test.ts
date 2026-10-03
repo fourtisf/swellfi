@@ -130,6 +130,12 @@ describe("account parsing", () => {
       { coin: "BTC", px: "100", sz: "1", closedPnl: "-20", fee: "0.1", time: 3 },
     ]);
     expect(a).toMatchObject({ realized: 80, volume: 6200, closed: 2, winRate: 50, best: 100 });
+    // a break-even close counts as a closed trade, not a win
+    const b = fillAnalytics([
+      { coin: "ETH", px: "3000", sz: "1", closedPnl: "0", fee: "1", dir: "Open Long", time: 1 },
+      { coin: "ETH", px: "3000", sz: "1", closedPnl: "0", fee: "1", dir: "Close Long", time: 2 },
+    ]);
+    expect(b).toMatchObject({ closed: 1, winRate: 0, best: null });
     expect(a.fees).toBeCloseTo(3.2);
     expect(a.builderFees).toBeCloseTo(3.05);
   });
