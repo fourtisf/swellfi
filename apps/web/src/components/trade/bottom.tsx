@@ -30,6 +30,9 @@ const Asset = ({ coin }: { coin: string }) => (
 const SidePill = ({ long, children }: { long: boolean; children: ReactNode }) => <span className={`pill ${long ? "l" : "s"}`}>{children}</span>;
 const time = (t: number) => new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 
+/** Funding on a small position is fractions of a cent per hour: show those instead of "-$0.00". */
+const fFunding = (v: number) => (v !== 0 && Math.abs(v) < 0.01 ? fUsd(v, 4) : fUsd(v));
+
 function Positions({ positions, tpsl, onClose, busy }: { positions: AccountPosition[]; tpsl: Record<string, { tp?: string; sl?: string }>; onClose(p: AccountPosition): void; busy: string | null }) {
   return (
     <table>
@@ -76,7 +79,9 @@ function Positions({ positions, tpsl, onClose, busy }: { positions: AccountPosit
               </td>
               <td>{p.leverage.value}x</td>
               <td style={{ color: "#F5B53D" }}>{p.liquidationPx ? fPx(p.liquidationPx) : "—"}</td>
-              <td className={sgn(-p.cumFundingSinceOpen)}>{fUsd(-p.cumFundingSinceOpen)}</td>
+              <td className={sgn(-p.cumFundingSinceOpen)} title="Funding since open: paid (−) or received (+). Hyperliquid settles it every hour.">
+                {fFunding(-p.cumFundingSinceOpen)}
+              </td>
               <td className="mut">
                 {t?.tp ? fPx(+t.tp) : "—"} / {t?.sl ? fPx(+t.sl) : "—"}
               </td>
