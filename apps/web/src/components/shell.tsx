@@ -88,9 +88,15 @@ function AccountSlot() {
         <button className="login" onClick={() => openModal("wallet")}>
           Log in
         </button>
-        <button className="btn btn-brand" onClick={() => openModal("waitlist")}>
-          Join waitlist
-        </button>
+        {s.inviteOnly ? (
+          <button className="btn btn-brand" onClick={() => openModal("waitlist")}>
+            Join waitlist
+          </button>
+        ) : (
+          <button className="btn btn-brand" onClick={() => openModal("wallet")}>
+            Start trading
+          </button>
+        )}
       </span>
     );
   }

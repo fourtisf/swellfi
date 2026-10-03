@@ -54,7 +54,20 @@ function HeroCtas() {
     return (
       <div className="ctas">
         <button className="btn btn-brand" onClick={() => openModal("invite")}>
-          Enter invite code <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
+          {s.inviteOnly ? "Enter invite code" : "Finish sign-up"} <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
+        </button>
+        <Link className="btn btn-ghost" href="/rankings">
+          See top traders
+        </Link>
+      </div>
+    );
+  }
+  // Open to everyone: connecting a wallet creates the account, no waitlist.
+  if (!s.inviteOnly) {
+    return (
+      <div className="ctas">
+        <button className="btn btn-brand" onClick={() => openModal("wallet")}>
+          Start trading <Icon name="arrow" size={16} />
         </button>
         <Link className="btn btn-ghost" href="/rankings">
           See top traders
