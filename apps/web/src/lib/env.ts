@@ -22,3 +22,6 @@ export const BUILDER_RATE = tenthsBpsToRate(HL.builder.feeTenthsBps);
 const ca = (process.env.NEXT_PUBLIC_TOKEN_CA ?? "0xa18d62e628b4fad057fcdb0fd8770f86c2fba055").trim();
 export const TOKEN_CA = /^0x[0-9a-fA-F]{40}$/.test(ca) ? ca : "";
 export const TOKEN_URL = /^https:\/\//.test(process.env.NEXT_PUBLIC_TOKEN_URL ?? "") ? process.env.NEXT_PUBLIC_TOKEN_URL! : "";
+
+/** The official X account. */
+export const X_URL = process.env.NEXT_PUBLIC_X_URL || "https://x.com/swellfixyz";

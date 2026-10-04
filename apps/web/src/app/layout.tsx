@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   applicationName: BRAND,
   metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
   openGraph: { type: "website", siteName: BRAND },
-  twitter: { card: "summary_large_image" },
+  twitter: { card: "summary_large_image", site: "@swellfixyz" },
 };
 
 export const viewport: Viewport = {
