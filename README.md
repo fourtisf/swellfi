@@ -101,7 +101,7 @@ Then open http://localhost:3000.
 5. The TP fires.
 6. Withdraw.
 
-`e2e/feed.spec.ts` covers the activity feed end to end: a trade is picked up by the indexer (run it against the mock, see below), shows as "opened" and "closed", and a second trader likes it, follows, filters and uses Copy trade. `e2e/profile.spec.ts` covers editing the profile and the deposit/withdrawal history. `e2e/feed-sources.spec.ts` covers whale trades and top traders in the feed (run the indexer with `TOP_TRADERS_URL=http://localhost:4100/leaderboard INDEXER_TOP_POLL_MS=3000`). `e2e/tpsl.spec.ts` sets, edits and removes TP/SL on an open position and lets the stop fire. `e2e/close.spec.ts` closes a position in three steps: part at market, part with a resting limit, the rest with a limit already through the market. `e2e/builder.spec.ts` trades from the builder wallet (no fee to itself); its unfunded-builder tests (users still trade without the fee; the fee comes back once it's funded; Hyperliquid refusing after a stale balance read) empty the builder's balance, so it only runs with `E2E_BUILDER_BALANCE=1` and on its own (`pnpm --filter @swellfi/web e2e builder.spec.ts`).
+`e2e/feed.spec.ts` covers the activity feed end to end: a trade is picked up by the indexer (run it against the mock, see below), shows as "opened" and "closed", and a second trader likes it, follows, filters and uses Copy trade. `e2e/profile.spec.ts` covers editing the profile and the deposit/withdrawal history. `e2e/share.spec.ts` shares a live position and a closed trade as PnL cards (PNG, X intent, preview tags). `e2e/feed-sources.spec.ts` covers whale trades and top traders in the feed (run the indexer with `TOP_TRADERS_URL=http://localhost:4100/leaderboard INDEXER_TOP_POLL_MS=3000`). `e2e/tpsl.spec.ts` sets, edits and removes TP/SL on an open position and lets the stop fire. `e2e/close.spec.ts` closes a position in three steps: part at market, part with a resting limit, the rest with a limit already through the market. `e2e/builder.spec.ts` trades from the builder wallet (no fee to itself); its unfunded-builder tests (users still trade without the fee; the fee comes back once it's funded; Hyperliquid refusing after a stale balance read) empty the builder's balance, so it only runs with `E2E_BUILDER_BALANCE=1` and on its own (`pnpm --filter @swellfi/web e2e builder.spec.ts`).
 
 `e2e/deposit-relay.spec.ts` covers deposits from other networks through Relay (the Relay API and the Base RPC are mocked in the browser). It needs a mainnet build (`NEXT_PUBLIC_HL_NETWORK=mainnet`), the mock in mainnet mode (`MOCK_HL_NETWORK=mainnet`), and `E2E_NETWORK=mainnet`; otherwise it is skipped.
 
@@ -152,6 +152,15 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/jso
 - `POST /api/me/sync` (called by the web app when an order succeeds or a fill arrives) makes the indexer look at that account now. Limited per account: the first call in 10 s polls now, later ones are deferred to the window's end, never dropped. A poll that finishes never pushes back a sync that arrived while it ran.
 - Feed API: `GET /api/activity?scope=global|following&kind=all|trades|open|close&source=all|swellfi|whales|top`, likes (`POST/DELETE /api/activity/:id/like`), follows (`POST/DELETE /api/users/:id/follow`), `GET /api/news` (RSS, cached 10 min). Private accounts (`isPublic: false`, set in Edit profile) are left out of the feed and rankings.
 - "Copy trade" only fills in the order panel (market, side, leverage). The user still picks the size and confirms.
+
+### PnL cards
+
+Share buttons (each open position's PnL, and opened/closed events in the feed) open a card preview with "Post on X", native share, download, copy image and copy link. Cards are 1200x630 PNGs rendered by Next (`next/og`, fonts in `apps/web/assets/fonts`) **from real data only**, so the domain never vouches for numbers someone typed:
+
+- `/t/<activity id>`: an indexed trade (`GET /api/activity/:id`, public accounts only). `/t/<id>/image` is the card.
+- `/p/<handle>/<coin>`: a member's open position, read live from Hyperliquid's `clearinghouseState`. `/p/<handle>/<coin>/image` is the card.
+- `?amt=0` hides dollar amounts (percentages only). The pages set `og:image` / `twitter:card summary_large_image`, so a posted link shows the card.
+- Return is on the margin at entry (needs the leverage the indexer saw at the open); without it the card shows the PnL or the price move.
 
 ### Beyond members: whales and top traders
 

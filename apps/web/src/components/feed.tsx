@@ -15,6 +15,7 @@ import { useSession } from "@/lib/session";
 import { openModal, toast } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
 import { FollowButton } from "./social";
+import { openShare } from "./share-modal";
 import { useOrderForm } from "./trade/order-store";
 
 type Scope = "global" | "following";
@@ -87,7 +88,14 @@ function LikeButton({ a }: { a: ActivityItem }) {
   );
 }
 
-function shareText(a: ActivityItem) {
+/** Return on the margin at entry for a close, when the leverage is known (same as the card). */
+function roeOf(a: ActivityItem) {
+  const d = a.data;
+  const margin = d.entry && d.sz && d.lev ? (d.entry * d.sz) / d.lev : 0;
+  return a.kind === "close" && margin && d.pnl != null ? (d.pnl / margin) * 100 : null;
+}
+
+function shareText(a: ActivityItem, amounts = true) {
   const d = a.data;
   const coin = displayName(d.coin ?? "");
   const side = d.side === "long" ? "Long" : "Short";
@@ -95,8 +103,11 @@ function shareText(a: ActivityItem) {
   // Not every event happened on Swellfi: say where.
   const venue = a.user.kind && a.user.kind !== "member" ? "on Hyperliquid, via" : "on";
   if (a.kind === "whale") return `🐋 ${who} ${d.side === "buy" ? "bought" : "sold"} ${fCompact(d.size ?? 0)} of ${coin} at ${fPx(d.px)} ${venue} ${BRAND}`;
+  const roe = roeOf(a);
+  const result = !amounts && roe != null ? `${roe >= 0 ? "+" : "−"}${Math.abs(roe).toFixed(1)}%` : signed(d.pnl ?? 0);
+  if (a.kind === "close" && !amounts && roe == null) return `${who} closed ${coin} ${side} ${venue} ${BRAND}`;
   return a.kind === "close"
-    ? `${who} closed ${coin} ${side} for ${signed(d.pnl ?? 0)} ${venue} ${BRAND}`
+    ? `${who} closed ${coin} ${side} for ${result} ${venue} ${BRAND}`
     : `${who} opened ${coin} ${side}${d.lev ? ` ${d.lev}x` : ""} ${venue} ${BRAND}`;
 }
 
@@ -109,12 +120,10 @@ function TradeItem({ a, now }: { a: ActivityItem; now: number }) {
   const pnl = d.pnl ?? 0;
   const profile = traderHref(a.user.handle);
 
-  const share = async (e: React.MouseEvent) => {
+  // The PnL card: preview, then post / download / copy.
+  const share = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${location.origin}${profile}`;
-    const text = shareText(a);
-    if (navigator.share) return navigator.share({ text, url }).catch(() => {});
-    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank", "noopener,noreferrer");
+    openShare({ kind: "trade", id: a.id, text: shareText(a), textNoAmounts: shareText(a, false) });
   };
   // Copy trade = same market, side and leverage in the order panel. Size and confirmation stay with the user.
   const copy = (e: React.MouseEvent) => {

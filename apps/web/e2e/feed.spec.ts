@@ -63,7 +63,7 @@ test("trades show up in the activity feed; others like, follow and copy them", a
   await expect(closed).toContainText(/Trade · Closed · \+\$\d/, { timeout: 40_000 });
   await expect(closed).toContainText(/3,0\d\d\.\d+ → 3,0\d\d\.\d+/);
   await expect(page.locator(".afsum")).toContainText("traded today");
-  await expect(page.locator(".afsum")).toContainText(/BTC|ETH/);
+  await expect(page.locator(".afsum")).toContainText("most traded"); // which coin depends on the day's other trades
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/feed.png` });
 
   // Trader B: likes A's close, follows A, then copies A's open.

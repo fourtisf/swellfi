@@ -22,3 +22,7 @@ export const NAV: NavItem[] = [
 ];
 
 export const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+/** Share page of an indexed trade (its preview image is the PnL card). */
+export const shareTradeHref = (id: string) => `/t/${encodeURIComponent(id)}`;
+/** Share page of a member's open position (card read live from Hyperliquid). */
+export const sharePositionHref = (handle: string, coin: string) => `/p/${encodeURIComponent(handle)}/${encodeURIComponent(coin)}`;

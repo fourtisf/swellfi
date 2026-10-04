@@ -31,7 +31,8 @@ test("whale trades and top traders show in the feed, filtered by source", async 
   await expect(page.locator(".afeed")).not.toContainText("0x0bad…0bad"); // $2K: not a whale
 
   await src.getByRole("tab", { name: "Top traders" }).click();
-  const top = page.locator(".afi", { hasText: "0x0000…70b0" }).first();
+  // Earlier runs may have left other trades of the same trader: pick this one.
+  const top = page.locator(".afi", { hasText: "0x0000…70b0" }).filter({ hasText: "DOGE" }).first();
   await expect(top).toContainText("opened", { timeout: 30_000 });
   await expect(top).toContainText("Top trader");
   await expect(top).toContainText("DOGE");

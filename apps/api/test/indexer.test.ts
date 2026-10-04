@@ -175,6 +175,20 @@ describe("indexer", () => {
     expect((await t.prisma.indexState.findUnique({ where: { userId: frank.id } }))!.nextPollAt.getTime()).toBe(clock + backoffMs(3));
   });
 
+  it("serves one event for share pages, never a private account's", async () => {
+    const erin = (await t.prisma.user.findUnique({ where: { address: ERIN } }))!;
+    const close = (await t.prisma.activity.findFirst({ where: { userId: erin.id, kind: "close" } }))!;
+    const get = () => t.app.inject({ url: `/api/activity/${encodeURIComponent(close.id)}` });
+    const r = await get();
+    expect(r.statusCode).toBe(200);
+    expect(r.json().item).toMatchObject({ id: close.id, kind: "close", user: { handle: erin.handle, kind: "member" }, data: { coin: "BTC", side: "long" } });
+    expect(r.json().item.user.privyId).toBeUndefined();
+    await t.prisma.user.update({ where: { id: erin.id }, data: { isPublic: false } });
+    expect((await get()).statusCode).toBe(404);
+    await t.prisma.user.update({ where: { id: erin.id }, data: { isPublic: true } });
+    expect((await t.app.inject({ url: "/api/activity/nope" })).statusCode).toBe(404);
+  });
+
   it("serves the feed with filters, likes and follows", async () => {
     const erin = (await t.prisma.user.findUnique({ where: { address: ERIN } }))!;
     const frank = (await t.prisma.user.findUnique({ where: { address: FRANK } }))!;

@@ -3,12 +3,14 @@
 import { displayName, type AccountPosition } from "@swellfi/hl";
 import { ago, CoinIcon, Empty, fPct, fPx, fUsd, Icon, sgn, type IconName } from "@swellfi/ui";
 import { useState, type ReactNode } from "react";
+import { BRAND } from "@/lib/env";
 import { useNow } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { useFills, useFundingHistory, useHlAccount, useOrderHistory } from "@/lib/trading/account";
 import { errMsg, useTrading } from "@/lib/trading/use-trading";
 import { toast } from "@/lib/ui-store";
 import { LivePx } from "../live";
+import { openShare } from "../share-modal";
 import { CloseModal, openClose } from "./close-modal";
 import { openTpsl, TpslModal, tpslByCoin, type TpslOrders } from "./tpsl-modal";
 
@@ -35,7 +37,7 @@ const time = (t: number) => new Date(t).toLocaleString("en-US", { month: "short"
 /** Funding on a small position is fractions of a cent per hour: show those instead of "-$0.00". */
 const fFunding = (v: number) => (v !== 0 && Math.abs(v) < 0.01 ? fUsd(v, 4) : fUsd(v));
 
-function Positions({ positions, tpsl }: { positions: AccountPosition[]; tpsl: Record<string, TpslOrders> }) {
+function Positions({ positions, tpsl, handle }: { positions: AccountPosition[]; tpsl: Record<string, TpslOrders>; handle?: string }) {
   return (
     <table>
       <thead>
@@ -75,6 +77,16 @@ function Positions({ positions, tpsl }: { positions: AccountPosition[]; tpsl: Re
               </td>
               <td className={sgn(p.unrealizedPnl)}>
                 <b>{fUsd(p.unrealizedPnl)}</b> <small>({fPct(p.returnOnEquity * 100, 1)})</small>
+                {handle && (
+                  <button
+                    className="pnl-share"
+                    title="Share a PnL card"
+                    aria-label={`Share ${displayName(p.coin)} PnL card`}
+                    onClick={() => openShare({ kind: "position", handle, coin: p.coin, text: `${long ? "Long" : "Short"} ${displayName(p.coin)} ${p.leverage.value}x: ${fPct(p.returnOnEquity * 100, 1)} on ${BRAND}` })}
+                  >
+                    <Icon name="share" size={13} />
+                  </button>
+                )}
               </td>
               <td>
                 {fUsd(p.marginUsed)} <small className="dim">{p.leverage.type === "cross" ? "Cross" : "Iso"}</small>
@@ -154,7 +166,7 @@ export function BottomTabs() {
     );
   } else if (tab === "pos") {
     body = acct.positions.length ? (
-      <Positions positions={acct.positions} tpsl={tpsl} />
+      <Positions positions={acct.positions} tpsl={tpsl} handle={s.status === "ready" ? s.me?.user.handle : undefined} />
     ) : (
       empty
     );

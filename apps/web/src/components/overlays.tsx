@@ -18,6 +18,7 @@ import { WC_ID, WC_PROJECT_ID } from "@/lib/walletconnect";
 import { matchWallets, WALLETS, walletLogo } from "@/lib/wallets";
 import { MarketSelector } from "./markets";
 import { Modal } from "./modal";
+import { ShareModal } from "./share-modal";
 import { MoneyModals } from "./trade/money-modals";
 
 function WalletModal() {
@@ -412,6 +413,7 @@ export function Overlays() {
       <PickerModal />
       <CmdModal />
       <MoneyModals />
+      <ShareModal />
       <Toast />
     </>
   );

@@ -134,6 +134,14 @@ export async function feedRoutes(app: FastifyInstance, ctx: AppContext) {
     };
   });
 
+  /** One event, for share pages and their preview images. */
+  app.get("/activity/:id", async (req) => {
+    const { id } = z.object({ id: idSchema }).parse(req.params);
+    const a = await prisma.activity.findUnique({ where: { id }, include: { user: true } });
+    if (!a || !a.user.isPublic) throw notFound("Activity not found");
+    return { item: { id: a.id, kind: a.kind, user: publicUser(a.user), data: a.data, createdAt: a.createdAt, likes: a.likes } };
+  });
+
   app.post("/activity/:id/like", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req) => {
     const user = await ctx.requireUser(req);
     const { id } = z.object({ id: idSchema }).parse(req.params);
