@@ -682,6 +682,6 @@ a.lp-chip:hover{border-color:var(--brand-line);background:var(--brand-soft)}
 .token-ca-btn{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--muted);transition:.15s}
 .token-ca-btn:hover{color:var(--text);background:rgba(150,185,215,.12)}
 .hero-ca{margin-top:18px}
-.foot-ca{margin-top:14px}
+.foot-ca{margin-top:14px;align-self:flex-start;width:fit-content}
 @media (max-width:640px){.token-ca-full{display:none}.token-ca-short{display:inline}}
 .foot-ca .token-ca-full{display:none}.foot-ca .token-ca-short{display:inline}
