@@ -164,95 +164,150 @@ function hsl(h: number, s: number, l: number) {
 export async function renderCard(c: CardData, opts: { amounts: boolean }) {
   const [fontList, brandIcon, logo] = await Promise.all([loadFonts(), fileUri("src/app/icon.svg"), coinLogo(c.coin)]);
   const up = (c.pnl ?? 0) >= 0;
-  const accent = c.kind === "open" ? "#4DB5FF" : up ? "#19D08B" : "#FF5A67";
+  const open = c.kind === "open";
+  // Accent: brand blue for opens, green / red for results.
+  const [acc, accSoft, accDeep] = open ? ["#5CC2FF", "#9AF1FF", "#2F86F0"] : up ? ["#21E0A0", "#8CF5CF", "#0E9F6E"] : ["#FF5C6C", "#FFA3AD", "#C8283A"];
   const long = c.side === "long";
   const h = hue(c.handle);
-  const tag = c.kind === "close" ? (c.liquidated ? "LIQUIDATED" : "CLOSED") : c.kind === "position" ? "OPEN POSITION" : "OPENED";
+  const tag = c.kind === "close" ? (c.liquidated ? "LIQUIDATED" : "CLOSED") : c.kind === "position" ? "LIVE POSITION" : "OPENED";
 
-  // Headline: ROE when known; otherwise PnL; for opens, the position size (or the side).
+  // The headline number.
   let big: string;
-  let small: string | null = null;
-  if (c.kind === "open") {
+  let label: string;
+  let sub: string | null = null;
+  if (open) {
     big = `${long ? "Long" : "Short"}${c.lev ? ` ${c.lev}x` : ""}`;
-    small = opts.amounts && c.size ? `${fSize(c.size)} at ${fPx(c.px)}` : `at ${fPx(c.px)}`;
+    label = "NEW POSITION";
+    sub = null;
   } else if (c.roe != null && Number.isFinite(c.roe)) {
     big = fPct(c.roe);
-    small = opts.amounts && c.pnl != null ? `${fUsd(c.pnl)} ${c.kind === "position" ? "unrealized" : "PnL"}` : null;
+    label = c.kind === "position" ? "UNREALIZED ROE" : "ROE";
+    sub = opts.amounts && c.pnl != null ? fUsd(c.pnl) : null;
+  } else if (opts.amounts && c.pnl != null) {
+    big = fUsd(c.pnl);
+    label = c.kind === "position" ? "UNREALIZED PNL" : "REALIZED PNL";
   } else {
-    big = opts.amounts && c.pnl != null ? fUsd(c.pnl) : c.entry && c.px ? fPct(((c.px - c.entry) / c.entry) * 100 * (long ? 1 : -1)) : "—";
+    big = c.entry && c.px ? fPct(((c.px - c.entry) / c.entry) * 100 * (long ? 1 : -1)) : "—";
+    label = "PRICE MOVE";
   }
+  const bigSize = big.length > 8 ? 128 : big.length > 6 ? 150 : 168;
 
-  // A soft wave behind the numbers, rising for wins, falling for losses.
-  // Kept between y 190 and 450, clear of the name and date at the bottom right.
-  const [y0, y1] = up ? [420, 210] : [230, 430];
-  const wave = Array.from({ length: 41 }, (_, i) => {
-    const x = 520 + i * 17;
-    const y = y0 + (y1 - y0) * (i / 40) + Math.sin(i * 0.55) * 20 + Math.sin(i * 1.7) * 8;
-    return `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join("");
-  // Fades in from the left (a mask, so the background glow behind it stays untouched).
-  const waveSvg = svgUri(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${accent}" stop-opacity=".26"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></linearGradient><linearGradient id="f" x1="520" y1="0" x2="760" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="1200" height="630" fill="url(#f)"/></mask></defs><g mask="url(#m)"><path d="${wave}L1220,630L520,630Z" fill="url(#g)"/><path d="${wave}" fill="none" stroke="${accent}" stroke-width="4" stroke-linejoin="round" stroke-opacity=".9"/></g></svg>`,
+  // Layered swell: three ribbons rising to the right for wins (falling for losses), on brand.
+  const ribbon = (base: number, amp: number, k: number, ph: number, tilt: number) => {
+    let d = "";
+    for (let i = 0; i <= 48; i++) {
+      const x = 380 + i * 18;
+      const y = base - (i / 48) * tilt + Math.sin(i * k + ph) * amp + Math.sin(i * k * 2.3 + ph * 1.7) * amp * 0.3;
+      d += `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+    }
+    return d;
+  };
+  const tilt = open ? 60 : up ? 120 : -40;
+  const waves = [
+    // Losses fall to the right, so they start higher to stay above the footer.
+    { d: ribbon(up || open ? 470 : 420, 16, 0.22, 0.4, tilt * 0.6), o: 0.12 },
+    { d: ribbon(up || open ? 500 : 445, 20, 0.19, 1.6, tilt * 0.85), o: 0.18 },
+    { d: ribbon(up || open ? 525 : 465, 14, 0.25, 2.8, tilt), o: 0.3 },
+  ];
+  // Ripples around the right side: the "swell".
+  const rings = [130, 200, 270, 340, 410, 480].map((r, i) => `<circle cx="1010" cy="250" r="${r}" fill="none" stroke="${i % 2 ? accSoft : acc}" stroke-opacity="${(0.16 - i * 0.022).toFixed(3)}" stroke-width="${i ? 1.5 : 2}"/>`).join("");
+  const art = svgUri(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+      <defs>
+        <radialGradient id="gm" cx="84%" cy="40%" r="55%"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+        <mask id="m"><rect width="1200" height="630" fill="url(#gm)"/></mask>
+        <linearGradient id="fx" x1="380" y1="0" x2="760" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient>
+        <mask id="mx"><rect width="1200" height="630" fill="url(#fx)"/></mask>
+        <linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${acc}"/><stop offset="1" stop-color="${accDeep}" stop-opacity="0"/></linearGradient>
+        <linearGradient id="hl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${accSoft}" stop-opacity="0"/><stop offset=".6" stop-color="${accSoft}"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+      </defs>
+      <g mask="url(#m)">${rings}</g>
+      <g mask="url(#mx)">
+        ${waves.map((w) => `<path d="${w.d}L1250,700L380,700Z" fill="url(#w)" fill-opacity="${w.o}"/>`).join("")}
+        <path d="${waves[2]!.d}" fill="none" stroke="url(#hl)" stroke-width="3.5" stroke-linejoin="round"/>
+      </g>
+    </svg>`,
   );
 
-  const pill = (text: string, color: string, bg: string) => (
-    <div style={{ display: "flex", padding: "8px 18px", borderRadius: 999, background: bg, color, fontSize: 26, fontWeight: 700 }}>{text}</div>
+  const chip = (text: string, color: string, bg: string, border: string) => (
+    <div style={{ display: "flex", alignItems: "center", padding: "7px 16px", borderRadius: 999, background: bg, border: `1.5px solid ${border}`, color, fontSize: 22, fontWeight: 700 }}>{text}</div>
   );
-  const kv = (k: string, v: string) => (
-    <div style={{ display: "flex", flexDirection: "column", marginRight: 54 }}>
-      <div style={{ fontSize: 20, color: "#7D8CA3", fontWeight: 500, letterSpacing: 2 }}>{k}</div>
-      <div style={{ fontSize: 34, color: "#EAF1FA", fontWeight: 700, marginTop: 6 }}>{v}</div>
+  const stat = (k: string, v: string, last = false) => (
+    <div style={{ display: "flex", flexDirection: "column", paddingRight: 34, marginRight: 34, borderRight: last ? "none" : "1.5px solid rgba(255,255,255,0.10)" }}>
+      <div style={{ display: "flex", fontSize: 15, color: "#7F90A8", fontWeight: 700, letterSpacing: 2.4 }}>{k}</div>
+      <div style={{ display: "flex", fontSize: 28, color: "#F2F7FD", fontWeight: 700, marginTop: 6 }}>{v}</div>
     </div>
   );
+  const stats: [string, string][] = [];
+  if (!open) {
+    stats.push(["ENTRY", fPx(c.entry)], [c.kind === "position" ? "MARK" : "EXIT", fPx(c.px)]);
+  } else stats.push(["ENTRY", fPx(c.px)]);
+  // Opens already say the leverage in the headline.
+  if (c.lev && !open) stats.push(["LEVERAGE", `${c.lev}x`]);
+  if (opts.amounts && c.size) stats.push(["SIZE", fSize(c.size)]);
 
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", position: "relative", fontFamily: "Inter", color: "#EAF1FA", background: "#04070D" }}>
-        <div style={{ position: "absolute", left: -260, top: -380, width: 1100, height: 1100, borderRadius: 9999, background: "radial-gradient(circle, rgba(47,134,240,0.30), rgba(47,134,240,0) 62%)" }} />
-        <div style={{ position: "absolute", right: -300, bottom: -460, width: 1000, height: 1000, borderRadius: 9999, background: `radial-gradient(circle, ${accent}2E, rgba(0,0,0,0) 60%)` }} />
-        <img alt="" src={waveSvg} width={1200} height={630} style={{ position: "absolute", left: 0, top: 0 }} />
+      <div style={{ width: "100%", height: "100%", display: "flex", position: "relative", fontFamily: "Inter", color: "#EAF1FA", background: "linear-gradient(140deg, #071225 0%, #050A15 48%, #03060C 100%)", overflow: "hidden" }}>
+        {/* aurora */}
+        <div style={{ position: "absolute", left: -280, top: -420, width: 1000, height: 1000, borderRadius: 9999, background: "radial-gradient(circle, rgba(47,134,240,0.42), rgba(47,134,240,0) 62%)" }} />
+        <div style={{ position: "absolute", left: 520, top: -380, width: 760, height: 760, borderRadius: 9999, background: "radial-gradient(circle, rgba(154,241,255,0.13), rgba(154,241,255,0) 62%)" }} />
+        <div style={{ position: "absolute", left: 600, top: 120, width: 900, height: 900, borderRadius: 9999, background: `radial-gradient(circle, ${acc}40, ${acc}00 60%)` }} />
+        <img alt="" src={art} width={1200} height={630} style={{ position: "absolute", left: 0, top: 0 }} />
+        {/* coin medallion in the ripples */}
+        <div style={{ position: "absolute", left: 1010 - 92, top: 250 - 92, width: 184, height: 184, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: `linear-gradient(140deg, ${accSoft}, ${accDeep})`, boxShadow: `0 0 90px ${acc}66, 0 30px 60px rgba(0,0,0,0.5)` }}>
+          <div style={{ display: "flex", width: 172, height: 172, borderRadius: 999, alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 35% 30%, #16233A, #070C17 70%)" }}>
+            {logo ? (
+              <img alt="" src={logo} width={112} height={112} style={{ borderRadius: 999 }} />
+            ) : (
+              <div style={{ display: "flex", fontFamily: "Inter Tight", fontWeight: 800, fontSize: 72, color: accSoft }}>{disp(c.coin).slice(0, 1)}</div>
+            )}
+          </div>
+        </div>
+        {/* edge highlight */}
+        <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 2, background: "linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.35), rgba(255,255,255,0))" }} />
 
-
-        <div style={{ display: "flex", flexDirection: "column", padding: "52px 64px", width: "100%", height: "100%" }}>
-          {/* top row */}
+        <div style={{ display: "flex", flexDirection: "column", padding: "48px 60px 46px", width: "100%", height: "100%", position: "relative" }}>
+          {/* header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
-              {brandIcon && <img alt="" src={brandIcon} width={52} height={52} />}
-              <div style={{ fontFamily: "Inter Tight", fontWeight: 800, fontSize: 40, marginLeft: 14, letterSpacing: -1.5 }}>{BRAND}</div>
+              {brandIcon && <img alt="" src={brandIcon} width={46} height={46} />}
+              <div style={{ display: "flex", fontFamily: "Inter Tight", fontWeight: 800, fontSize: 34, marginLeft: 12, letterSpacing: -1.2 }}>{BRAND}</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", padding: "10px 18px", borderRadius: 999, border: `1.5px solid ${accent}88`, background: `${accent}1F`, color: accent, fontSize: 20, fontWeight: 700, letterSpacing: 3 }}>
+            <div style={{ display: "flex", alignItems: "center", padding: "9px 18px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.12)", fontSize: 16, fontWeight: 700, letterSpacing: 3, color: "#C9D5E3" }}>
+              <div style={{ display: "flex", width: 10, height: 10, borderRadius: 99, background: acc, boxShadow: `0 0 14px ${acc}`, marginRight: 10 }} />
               {tag}
             </div>
           </div>
 
           {/* market */}
-          <div style={{ display: "flex", alignItems: "center", marginTop: 54 }}>
-            {logo ? (
-              <img alt="" src={logo} width={64} height={64} style={{ borderRadius: 999 }} />
-            ) : (
-              <div style={{ display: "flex", width: 64, height: 64, borderRadius: 999, alignItems: "center", justifyContent: "center", background: "#1B2A40", fontSize: 30, fontWeight: 700 }}>{disp(c.coin).slice(0, 1)}</div>
-            )}
-            <div style={{ fontFamily: "Inter Tight", fontWeight: 800, fontSize: 52, marginLeft: 18, marginRight: 22, letterSpacing: -1.5 }}>{disp(c.coin)}</div>
-            {pill(long ? "Long" : "Short", long ? "#3BE3A2" : "#FF6B76", long ? "rgba(25,208,139,0.16)" : "rgba(234,57,67,0.16)")}
-            {c.lev && c.kind !== "open" ? <div style={{ display: "flex", marginLeft: 12 }}>{pill(`${c.lev}x`, "#C9D5E3", "rgba(255,255,255,0.08)")}</div> : null}
+          <div style={{ display: "flex", alignItems: "center", marginTop: 40 }}>
+            <div style={{ display: "flex", flexDirection: "column", marginRight: 22 }}>
+              <div style={{ display: "flex", fontFamily: "Inter Tight", fontWeight: 800, fontSize: 46, letterSpacing: -1.5, lineHeight: 1 }}>{`${disp(c.coin)}-PERP`}</div>
+              <div style={{ display: "flex", fontSize: 17, color: "#7F90A8", fontWeight: 500, marginTop: 6 }}>Perpetual · Hyperliquid</div>
+            </div>
+            {chip(long ? "Long" : "Short", long ? "#4BEAAE" : "#FF7A86", long ? "rgba(25,208,139,0.14)" : "rgba(234,57,67,0.14)", long ? "rgba(25,208,139,0.45)" : "rgba(234,57,67,0.45)")}
+            {c.lev && !open ? <div style={{ display: "flex", marginLeft: 10 }}>{chip(`${c.lev}x`, "#DCE6F2", "rgba(255,255,255,0.06)", "rgba(255,255,255,0.16)")}</div> : null}
           </div>
 
-          {/* the number */}
-          <div style={{ display: "flex", fontFamily: "Inter Tight", fontWeight: 800, fontSize: 150, lineHeight: 1, letterSpacing: -6, color: accent, marginTop: 26 }}>{big}</div>
-          {small && <div style={{ display: "flex", fontSize: 34, fontWeight: 700, color: "#C9D5E3", marginTop: 10 }}>{small}</div>}
+          {/* headline */}
+          <div style={{ display: "flex", fontSize: 16, fontWeight: 700, letterSpacing: 3.2, color: "#7F90A8", marginTop: 34 }}>{label}</div>
+          <div style={{ display: "flex", alignItems: "flex-end", marginTop: 4 }}>
+            <div style={{ display: "flex", fontFamily: "Inter Tight", fontWeight: 800, fontSize: bigSize, lineHeight: 0.92, letterSpacing: -7, color: acc, textShadow: `0 0 60px ${acc}66` }}>{big}</div>
+            {sub && (
+              <div style={{ display: "flex", alignItems: "center", marginLeft: 26, marginBottom: 14, padding: "10px 18px", borderRadius: 16, background: `${acc}18`, border: `1.5px solid ${acc}55`, color: accSoft, fontSize: 30, fontWeight: 700 }}>{sub}</div>
+            )}
+          </div>
 
-          {/* prices */}
-          <div style={{ display: "flex", marginTop: "auto", alignItems: "flex-end", justifyContent: "space-between" }}>
-            <div style={{ display: "flex" }}>
-              {c.kind !== "open" && kv("ENTRY", fPx(c.entry))}
-              {c.kind !== "open" && kv(c.kind === "position" ? "MARK" : "EXIT", fPx(c.px))}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div style={{ display: "flex", width: 44, height: 44, borderRadius: 999, background: `linear-gradient(135deg, ${hsl(h, 0.8, 0.62)}, ${hsl((h + 70) % 360, 0.75, 0.5)})` }} />
-                <div style={{ fontSize: 30, fontWeight: 700, marginLeft: 14 }}>{c.handle}</div>
+          {/* glass footer */}
+          <div style={{ display: "flex", marginTop: "auto", alignItems: "center", justifyContent: "space-between", padding: "20px 28px", borderRadius: 22, background: "linear-gradient(180deg, rgba(20,30,48,0.92), rgba(10,16,28,0.94))", border: "1.5px solid rgba(255,255,255,0.12)", boxShadow: "0 24px 70px rgba(0,0,0,0.55)" }}>
+            <div style={{ display: "flex" }}>{stats.map(([k, v], i) => stat(k, v, i === stats.length - 1))}</div>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ display: "flex", width: 46, height: 46, borderRadius: 999, background: `linear-gradient(135deg, ${hsl(h, 0.8, 0.64)}, ${hsl((h + 70) % 360, 0.75, 0.48)})`, border: "2px solid rgba(255,255,255,0.25)" }} />
+              <div style={{ display: "flex", flexDirection: "column", marginLeft: 14 }}>
+                <div style={{ display: "flex", fontSize: 24, fontWeight: 700 }}>{c.handle}</div>
+                <div style={{ display: "flex", fontSize: 15, color: "#7F90A8", fontWeight: 500, marginTop: 4 }}>{`${fDate(c.at)} · swellfi.xyz`}</div>
               </div>
-              <div style={{ display: "flex", fontSize: 20, color: "#7D8CA3", fontWeight: 500, marginTop: 10 }}>{`${fDate(c.at)} · swellfi.xyz`}</div>
             </div>
           </div>
         </div>
