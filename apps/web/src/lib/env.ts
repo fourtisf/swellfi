@@ -16,10 +16,10 @@ export const HL = resolveHlConfig({
 
 export const BUILDER_RATE = tenthsBpsToRate(HL.builder.feeTenthsBps);
 
-// The project token's contract address (CA), shown on the home page and in the footer.
-// NEXT_PUBLIC_TOKEN_CA overrides it; set it empty to hide it. NEXT_PUBLIC_TOKEN_URL is an
+// The project token's contract address (CA), shown on the home page and in the footer when set.
+// Set NEXT_PUBLIC_TOKEN_CA to show it (hidden by default). NEXT_PUBLIC_TOKEN_URL is an
 // optional chart or explorer link for it.
-const ca = (process.env.NEXT_PUBLIC_TOKEN_CA ?? "0xa18d62e628b4fad057fcdb0fd8770f86c2fba055").trim();
+const ca = (process.env.NEXT_PUBLIC_TOKEN_CA ?? "").trim();
 export const TOKEN_CA = /^0x[0-9a-fA-F]{40}$/.test(ca) ? ca : "";
 export const TOKEN_URL = /^https:\/\//.test(process.env.NEXT_PUBLIC_TOKEN_URL ?? "") ? process.env.NEXT_PUBLIC_TOKEN_URL! : "";
 
