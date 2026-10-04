@@ -17,6 +17,7 @@ import { openModal } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
 import { MarketHighlights, MarketsTable } from "./markets";
 import { ActivityRow, TraderCell } from "./social";
+import { TokenCa } from "./token-ca";
 import { CtaBand, Features, HeroBackdrop, HeroProof, HeroShowcase, HowItWorks, MarketStrip } from "./landing";
 
 type HomeKey = "vol" | "gain" | "loss" | "tradfi";
@@ -315,6 +316,7 @@ export function HomeView() {
             </h1>
             <p>Trade crypto, stocks and commodities with leverage. Follow the traders worth following and build a track record of your own.</p>
             <HeroCtas />
+            <TokenCa className="hero-ca" />
             <HeroProof />
           </div>
           <HeroShowcase />

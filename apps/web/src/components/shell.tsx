@@ -12,6 +12,7 @@ import { useSession } from "@/lib/session";
 import { useHlAccount } from "@/lib/trading/account";
 import { openModal, toast } from "@/lib/ui-store";
 import { LiveChg, LivePx } from "./live";
+import { TokenCa } from "./token-ca";
 
 const MORE: { icon: IconName; label: string; run: (r: ReturnType<typeof useRouter>) => void }[] = [
   { icon: "fund", label: "Funds", run: (r) => r.push("/funds") },
@@ -270,6 +271,7 @@ export function Footer() {
           <span className="foot-net">
             <span className="dot live" /> {HL.network === "testnet" ? "Hyperliquid testnet" : "Hyperliquid mainnet"}
           </span>
+          <TokenCa className="foot-ca" />
         </div>
         <div className="foot-cols">
           <div>
