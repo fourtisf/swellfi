@@ -14,7 +14,7 @@
 //   NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc
 // Test hooks: POST /__mock/price {coin, px}, POST /__mock/deposit {user, amount},
 //   POST /__mock/usdc {user, amount} (sets the main-dex balance), GET /__mock/state,
-//   POST /__mock/fill {user, coin, px, sz, dir, closedPnl?} (a fill for any address, e.g. a top trader),
+//   POST /__mock/fill {user, coin, px, sz, dir, closedPnl?, time?} (a fill for any address, e.g. a top trader),
 //   POST /__mock/trade {coin, px, sz, side, taker, parts?} (a public trade, split into `parts` fills
 //   of one order, on the trades WebSocket), GET /leaderboard (stats-data leaderboard, LEADERBOARD rows)
 import http from "node:http";
@@ -600,7 +600,7 @@ const server = http.createServer(async (req, res) => {
       const tid = nextTid++;
       const dir = body.dir ?? "Open Long";
       a.fills.unshift({
-        coin: body.coin, px: str(+body.px), sz: str(+body.sz), side: /Long/.test(dir) === dir.startsWith("Open") ? "B" : "A", time: Date.now(),
+        coin: body.coin, px: str(+body.px), sz: str(+body.sz), side: /Long/.test(dir) === dir.startsWith("Open") ? "B" : "A", time: body.time ?? Date.now(),
         startPosition: "0", dir, closedPnl: String(body.closedPnl ?? "0"), hash: toHex(tid, { size: 32 }), oid: nextOid++, crossed: true,
         fee: (+body.px * +body.sz * FEES.taker).toFixed(6), tid, feeToken: "USDC",
       });

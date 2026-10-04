@@ -163,6 +163,8 @@ export interface Tier {
 
 export interface Me {
   user: PublicUser & { referralCode: string; isPublic: boolean };
+  /** ISO time of sign-up on Swellfi. */
+  joinedAt: string;
   isAdmin: boolean;
   referralLink: string;
 }

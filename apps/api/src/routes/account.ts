@@ -35,6 +35,8 @@ export async function accountRoutes(app: FastifyInstance, ctx: AppContext) {
     if (!user) return reply.status(404).send({ error: "NOT_REGISTERED", inviteOnly: env.INVITE_ONLY });
     return {
       user: { ...publicUser(user), referralCode: user.referralCode, isPublic: user.isPublic },
+      /** When they signed up (a claimed top-trader/whale row is older than the sign-up). */
+      joinedAt: (user.termsAcceptedAt ?? user.createdAt).toISOString(),
       isAdmin: ctx.isAdmin(user),
       referralLink: `${env.APP_URL}/r/${user.referralCode}`,
     };

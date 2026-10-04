@@ -1,8 +1,8 @@
 "use client";
 
-import { displayName, type AccountPosition } from "@swellfi/hl";
+import { displayName, fillAnalytics, type AccountPosition } from "@swellfi/hl";
 import { ago, CoinIcon, Empty, fPct, fPx, fUsd, Icon, sgn, type IconName } from "@swellfi/ui";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { BRAND } from "@/lib/env";
 import { useNow } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -128,6 +128,8 @@ export function BottomTabs() {
   const now = useNow(30_000);
   const [tab, setTab] = useState<Tab>("pos");
   const [anaOpen, setAnaOpen] = useState(true);
+  // The wallet's fills cover all of its Hyperliquid history (any app); start at sign-up by default.
+  const [anaAll, setAnaAll] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const live = s.status === "ready";
   const fills = useFills(live);
@@ -290,7 +292,9 @@ export function BottomTabs() {
     body = empty;
   }
 
-  const a = fills.analytics;
+  const joined = s.me ? Date.parse(s.me.joinedAt) : NaN;
+  const sinceJoin = !anaAll && Number.isFinite(joined);
+  const a = useMemo(() => (sinceJoin ? fillAnalytics(fills.fills.filter((f) => f.time >= joined)) : fills.analytics), [sinceJoin, joined, fills.fills, fills.analytics]);
   const ana: [string, ReactNode][] = live
     ? [
         // Hyperliquid's closedPnl is before fees: show what was actually made, with the gross beside it.
@@ -341,10 +345,22 @@ export function BottomTabs() {
       <div className="scroll-x" id="posBody">
         {body}
       </div>
-      <button className={`anah${anaOpen ? "" : " closed"}`} onClick={() => setAnaOpen((o) => !o)}>
-        <span className="car">▾</span>
-        <Icon name="chart" size={14} /> ANALYTICS
-      </button>
+      <div className="anah-row">
+        <button className={`anah${anaOpen ? "" : " closed"}`} onClick={() => setAnaOpen((o) => !o)}>
+          <span className="car">▾</span>
+          <Icon name="chart" size={14} /> ANALYTICS
+        </button>
+        {live && anaOpen && Number.isFinite(joined) && (
+          <div className="seg ana-range" title="Your wallet's trades on Hyperliquid from any app. Since joining counts only trades after you signed up here.">
+            <button className={anaAll ? "" : "on"} onClick={() => setAnaAll(false)}>
+              Since joining
+            </button>
+            <button className={anaAll ? "on" : ""} onClick={() => setAnaAll(true)}>
+              All time
+            </button>
+          </div>
+        )}
+      </div>
       {anaOpen && (
         <div className="ana">
           {ana.map(([k, v]) => (
