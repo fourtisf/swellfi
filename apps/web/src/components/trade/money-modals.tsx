@@ -22,7 +22,8 @@ function WithdrawBody() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const confirmStep = useConfirmStep();
-  const avail = acct.withdrawableByDex[""] ?? 0;
+  // A unified account keeps its USDC in the spot balance (the perps side shows 0 withdrawable).
+  const avail = acct.unified ? acct.summary.withdrawable : (acct.withdrawableByDex[""] ?? 0);
   const go = async () => {
     setErr("");
     const v = validateWithdraw(amt, avail);
@@ -71,7 +72,7 @@ function WithdrawBody() {
             <input className="input" inputMode="decimal" placeholder="0.00" value={amt} disabled={busy} onChange={(e) => setAmt(e.target.value.replace(/[^0-9.]/g, ""))} />
             <span>USDC</span>
           </div>
-          <button className="btn btn-ghost" style={{ height: 42 }} disabled={busy || avail <= 0} onClick={() => setAmt((Math.floor(avail * 100) / 100).toFixed(2))}>
+          <button className="btn btn-ghost" style={{ height: 42 }} disabled={busy || avail <= 0} onClick={() => setAmt((Math.floor(avail * 100 + 1e-6) / 100).toFixed(2))}>
             Max
           </button>
         </div>

@@ -14,6 +14,7 @@
 //   NEXT_PUBLIC_ARB_RPC_URL=http://localhost:4100/rpc
 // Test hooks: POST /__mock/price {coin, px}, POST /__mock/deposit {user, amount},
 //   POST /__mock/usdc {user, amount} (sets the main-dex balance), GET /__mock/state,
+//   POST /__mock/unified {user, amount} (unified account with spot USDC),
 //   POST /__mock/fill {user, coin, px, sz, dir, closedPnl?, time?} (a fill for any address, e.g. a top trader),
 //   POST /__mock/trade {coin, px, sz, side, taker, parts?} (a public trade, split into `parts` fills
 //   of one order, on the trades WebSocket), GET /leaderboard (stats-data leaderboard, LEADERBOARD rows)
@@ -334,9 +335,10 @@ async function exchange(body) {
     }
     case "withdraw3": {
       const amt = Number(action.amount);
-      const w = +clearinghouse(a, "").withdrawable;
+      const w = a.unified ? a.spotUsdc : +clearinghouse(a, "").withdrawable;
       if (!(amt > 1) || amt > w) return err("Insufficient balance for withdrawal");
-      a.usdc[""] -= amt;
+      if (a.unified) a.spotUsdc -= amt;
+      else a.usdc[""] -= amt;
       a.withdrawals.push({ amount: amt, destination: action.destination, time: Date.now() });
       a.ledger.push({ time: Date.now(), hash: keccak256(toHex(`w${Date.now()}${Math.random()}`)), delta: { type: "withdraw", usdc: String(amt), nonce: Date.now(), fee: "1.0" } });
       return ok();
@@ -462,8 +464,10 @@ function info(b) {
       return candles(b.req.coin, b.req.interval, b.req.startTime, b.req.endTime ?? Date.now());
     case "clearinghouseState":
       return clearinghouse(acct(b.user), b.dex ?? "");
-    case "spotClearinghouseState":
-      return { balances: [] };
+    case "spotClearinghouseState": {
+      const a = acct(b.user);
+      return { balances: a.unified ? [{ coin: "USDC", token: 0, total: str(a.spotUsdc), hold: "0", entryNtl: "0" }] : [] };
+    }
     case "frontendOpenOrders":
     case "openOrders":
       return acct(b.user).orders.filter((o) => BY_NAME.get(o.coin).dex === (b.dex ?? "")).map(frontendOrder);
@@ -487,7 +491,7 @@ function info(b) {
     case "maxBuilderFee":
       return acct(b.user).builders.get(b.builder.toLowerCase()) ?? 0;
     case "userAbstraction":
-      return "default";
+      return acct(b.user).unified ? "unifiedAccount" : "default";
     default:
       return undefined;
   }
@@ -621,6 +625,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.url === "/__mock/deposit") {
       credit(body.user, body.amount);
+      return send(res, 200, { ok: true });
+    }
+    if (req.url === "/__mock/unified") {
+      // A unified account: its USDC sits in the spot balance; the perps side reads 0.
+      const a = acct(body.user);
+      a.unified = true;
+      a.spotUsdc = Number(body.amount ?? 0);
       return send(res, 200, { ok: true });
     }
     res.writeHead(404).end();
